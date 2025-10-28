@@ -16,6 +16,7 @@ export class OpenCodeService {
   private opencode: OpencodeInstance | null = null;
   private currentSessionId: string | null = null;
   private isInitializing = false;
+  private workspaceDir?: string;
 
   async initialize(workspaceRoot?: string): Promise<void> {
     if (this.opencode || this.isInitializing) {
@@ -26,6 +27,11 @@ export class OpenCodeService {
 
     const prevCwd = process.cwd();
     const shouldChdir = Boolean(workspaceRoot) && fs.existsSync(workspaceRoot as string);
+
+    // Track workspace directory for SSE subscription
+    if (shouldChdir) {
+      this.workspaceDir = workspaceRoot as string;
+    }
 
     try {
       // Load workspace config if available
@@ -219,7 +225,18 @@ export class OpenCodeService {
     const model = config?.model || 'anthropic/claude-3-5-sonnet-20241022';
     const [providerID, modelID] = model.split('/');
 
-    // Send the prompt (non-blocking)
+    // Use the workspace directory used to start the server
+    const directory = this.workspaceDir || process.cwd();
+    console.log(`Subscribing to SSE events for directory: ${directory}`);
+
+    // Subscribe to SSE events BEFORE sending the prompt to avoid missing events
+    const sseResult = await this.opencode.client.event.subscribe({
+      query: { directory }
+    });
+
+    console.log('SSE subscription established, sending prompt...');
+
+    // Now send the prompt (don't await yet)
     const promptPromise = this.opencode.client.session.prompt({
       path: { id: sid },
       body: {
@@ -228,40 +245,41 @@ export class OpenCodeService {
       },
     });
 
-    // Subscribe to SSE events
-    const sseResult = await this.opencode.client.event.subscribe({
-      query: { directory: process.cwd() }
-    });
-
     // Process events from the stream
+    let eventCount = 0;
     try {
       for await (const event of sseResult.stream) {
-        // Filter for events related to our session
-        const typedEvent = event as Event;
-        
-        // Check if event has properties with sessionID
-        if ('properties' in typedEvent && typedEvent.properties && typeof typedEvent.properties === 'object') {
-          const props = typedEvent.properties as { sessionID?: string };
-          if (props.sessionID) {
-            // Only process events for our session
-            if (props.sessionID === sid) {
-              onEvent(typedEvent);
-              
-              // Stop streaming when session goes idle
-              if (typedEvent.type === 'session.idle') {
-                break;
-              }
-            }
-            continue;
-          }
+        eventCount++;
+        if (eventCount === 1) {
+          console.log('First SSE event received:', event);
         }
         
-        // Forward global events (installation.updated, etc.)
-        onEvent(typedEvent);
+        // Filter for events related to our session
+        const typedEvent = event as Event;
+        const props = (typedEvent as any).properties ?? {};
+        const evSessionID = props.sessionID as string | undefined;
+        
+        // Only process events for our session (or global events without sessionID)
+        if (!evSessionID || evSessionID === sid) {
+          onEvent(typedEvent);
+          
+          // Stop streaming when session goes idle
+          if (typedEvent.type === 'session.idle') {
+            console.log(`Session idle after ${eventCount} events, stopping stream`);
+            break;
+          }
+        }
       }
     } catch (error) {
       console.error('SSE streaming error:', error);
       throw error;
+    } finally {
+      // Close the SSE connection to avoid leaks
+      try {
+        (sseResult as any).close?.();
+      } catch (e) {
+        console.warn('Failed to close SSE stream:', e);
+      }
     }
 
     // Wait for the prompt to complete
