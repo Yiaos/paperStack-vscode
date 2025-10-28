@@ -352,12 +352,9 @@ function App() {
       case "tool":
         return renderToolPart(part);
       case "step-start":
-        return (
-          <div key={part.id} className="step-indicator">
-            <span className="step-icon">🔧</span>
-            <span className="step-text">Using tools...</span>
-          </div>
-        );
+      case "step-finish":
+        // Don't render step indicators
+        return null;
       default:
         return null;
     }
