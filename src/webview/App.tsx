@@ -77,6 +77,19 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking]);
 
+  // Auto-resize textarea based on content
+  const adjustTextareaHeight = () => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+    }
+  };
+
+  // Adjust height when input changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [input]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -119,7 +132,6 @@ function App() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={!isReady || isThinking}
-          rows={1}
         />
         <button 
           type="submit" 

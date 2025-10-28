@@ -49,6 +49,7 @@ body {
   resize: none;
   outline: none;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .prompt-input:focus {

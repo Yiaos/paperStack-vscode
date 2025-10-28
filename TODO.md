@@ -19,8 +19,13 @@
   - **Status**: Completed - workspace config loading verified and enhanced with logging
   - **Details**: Added comprehensive logging to show when workspace `opencode.json` is loaded, what values are in it, and verification that the config was successfully applied to the OpenCode server. Added `verifyConfig()` method that queries the server's active config and compares it to the workspace config to ensure settings match.
   - **Documentation**: See [docs/todos/opencode-config-verification.md](docs/todos/opencode-config-verification.md)
-- [ ] User message should auto-resize (use Tiptap)
+
+- [x] Prompt editor should auto-resize as user types
+
+  - **Status**: Completed - prompt editor textarea now auto-resizes smoothly as content is added
+  - **Details**: Implemented JavaScript-based auto-resize that expands the textarea height from 36px minimum up to 120px maximum (about 5-6 lines). Added overflow scrolling when content exceeds max height. Works by measuring scrollHeight and dynamically updating the height style on input changes.
+  - **Documentation**: See [docs/todos/prompt-editor-auto-resize.md](docs/todos/prompt-editor-auto-resize.md)
 - [ ] Tool calls should show up
-- [ ] Agent switcher
+- [ ] Agent switcher - add a little button to the left of the send button in the prompt editor that when clicked lets us toggle between different agents
 - [ ] Markdown support in assistant messages
 - [ ] @-mention support
