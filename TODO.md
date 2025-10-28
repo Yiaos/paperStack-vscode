@@ -81,3 +81,177 @@
 - [ ] New session button
 - [ ] Session switcher
 - [ ] Better tool calls
+
+## App.tsx Refactoring (Oracle Review)
+
+### 1. Remove "thinking" pseudo-message pattern
+
+- [x] Delete logic that injects/removes a special "thinking" message in the messages array
+- [x] Create `src/webview/components/ThinkingIndicator.tsx` component
+- [x] Add `<ThinkingIndicator when={isThinking()} />` at bottom of message list
+- [x] Simplifies message update logic by eliminating repeated filtering and special-case handling
+  - **Status**: Completed - thinking indicator extracted to standalone component
+  - **Details**: Created ThinkingIndicator component that uses `<Show>` to conditionally render. Removed "thinking" from Message type union. Eliminated all `.filter((m) => m.id !== "thinking")` calls from part-update, message-update, response, and error handlers. Simplified message rendering to remove if/else branching for thinking messages.
+  - **Benefits**: ~50 lines of code removed, cleaner message state management, no special-case filtering needed
+
+### 2. Create useVsCodeBridge composable
+
+- [ ] Create `src/webview/hooks/useVsCodeBridge.ts`
+- [ ] Move window message listener setup into the composable
+- [ ] Accept callbacks for each message type: init, agentList, thinking, partUpdate, messageUpdate, response, error
+- [ ] Return `{ send }` function for posting messages to extension host
+- [ ] Wire up in App.tsx to replace current switch-case message handling
+      Benefits: Separates transport from state orchestration, reduces App.tsx complexity
+
+Example signature:
+
+```typescript
+function useVsCodeBridge(on: {
+  init: (ready: boolean) => void,
+  agentList: (agents: Agent[]) => void,
+  thinking: (isThinking: boolean) => void,
+  partUpdate: (part: MessagePart & { messageID: string }) => void,
+  messageUpdate: (msg: { id: string; role?: "user"|"assistant"; text?: string; parts?: MessagePart[] }) => void,
+  response: (payload: { text?: string; parts?: MessagePart[] }) => void,
+  error: (message: string) => void,
+}) { ... }
+```
+
+### 3. Extract message update helpers
+
+- [ ] Create `src/webview/utils/messageUtils.ts`
+- [ ] Implement `applyPartUpdate(messages, part)` - handles creating or updating message with streaming parts
+- [ ] Implement `applyMessageUpdate(messages, incoming)` - handles message create/update with role, text, and parts
+- [ ] Keep arrays immutable with proper spread operations
+- [ ] Handle create-or-update idempotently (check if message exists, if not create it)
+- [ ] Replace inline message update logic in App.tsx with: `setMessages(prev => applyPartUpdate(prev, payload))`
+- [ ] Benefits: Pure functions, easy to test, safer streaming behavior, no special-case filtering
+
+### 4. Split into focused components
+
+#### InputBar component
+
+- [ ] Create `src/webview/components/InputBar.tsx`
+- [ ] Contains textarea, submit button logic, keyboard shortcuts
+- [ ] Integrate AgentSwitcher component
+- [ ] Handle auto-resize logic for textarea (move from App.tsx)
+- [ ] Props: `value`, `onInput`, `onSubmit`, `disabled`, `selectedAgent`, `agents`, `onAgentChange`
+
+#### AgentSwitcher component
+
+- [ ] Move to `src/webview/components/AgentSwitcher.tsx` (already exists but may need refinement)
+- [ ] Keep current button-only switcher design
+- [ ] Props: `agents`, `selectedAgent`, `onAgentChange`
+
+#### MessageList component
+
+- [ ] Create `src/webview/components/MessageList.tsx`
+- [ ] Renders messages array using MessageItem components
+- [ ] Owns auto-scroll behavior with "stick to bottom only if near bottom" logic
+- [ ] Add bottom sentinel div for scrollIntoView
+- [ ] Check if user is near bottom (within 40px) before auto-scrolling
+- [ ] Props: `messages`, `isThinking`
+
+Example auto-scroll:
+
+```typescript
+const shouldStick = () => {
+  const el = containerRef;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+};
+createEffect(() => {
+  props.messages;
+  props.isThinking;
+  if (shouldStick())
+    requestAnimationFrame(() => endRef.scrollIntoView({ behavior: "auto" }));
+});
+```
+
+#### MessageItem component
+
+- [ ] Create `src/webview/components/MessageItem.tsx`
+- [ ] Renders a single message with proper styling for user vs assistant
+- [ ] Delegates part rendering to MessagePartRenderer
+- [ ] Props: `message`
+
+#### MessagePartRenderer component
+
+- [ ] Create `src/webview/components/MessagePartRenderer.tsx`
+- [ ] Switch on part type and delegate to specific part components
+- [ ] Props: `part`
+
+#### Message part components
+
+- [ ] Create `src/webview/components/parts/TextBlock.tsx` - renders text parts
+- [ ] Create `src/webview/components/parts/ReasoningBlock.tsx` - renders reasoning blocks
+- [ ] Create `src/webview/components/parts/ToolCall.tsx` - move current renderToolPart logic here
+- [ ] Each component is small and presentational
+
+### 5. Create shared types file
+
+- [ ] Create `src/webview/types.ts`
+- [ ] Move Message, MessagePart, ToolState, Agent interfaces
+- [ ] Create union type for all host→webview message events
+- [ ] Import in all components and hooks for type safety
+- [ ] Prevents handler drift between extension and webview
+
+### 6. Simplify App.tsx to orchestration-only
+
+- [ ] Keep only state signals (input, messages, isThinking, isReady, agents, selectedAgent)
+- [ ] Wire useVsCodeBridge with update callbacks using messageUtils helpers
+- [ ] Compose InputBar and MessageList components
+- [ ] Remove all direct message handling logic, auto-scroll, textarea resize
+- [ ] App becomes thin orchestration layer (~100 lines vs current 440)
+
+Example structure:
+
+```typescript
+function App() {
+  const [input, setInput] = createSignal("");
+  const [messages, setMessages] = createSignal<Message[]>([]);
+  // ... other signals
+
+  const bridge = useVsCodeBridge({
+    partUpdate: (part) => setMessages(prev => applyPartUpdate(prev, part)),
+    messageUpdate: (msg) => setMessages(prev => applyMessageUpdate(prev, msg)),
+    // ... other handlers
+  });
+
+  const sendPrompt = () => {
+    bridge.send({ type: "sendPrompt", text: input(), agent: selectedAgent() });
+    setInput("");
+  };
+
+  return (
+    <div class="app">
+      <Show when={!messages().length}><InputBar .../></Show>
+      <MessageList messages={messages()} isThinking={isThinking()} />
+      <Show when={messages().length}><InputBar .../></Show>
+    </div>
+  );
+}
+```
+
+### 7. Small cleanups and improvements
+
+- [ ] Replace `Date.now().toString()` with `crypto.randomUUID()` for message IDs
+- [ ] Add `createMemo` for derived values like `hasMessages` and `currentAgent`
+- [ ] Wrap verbose console.log with debug flag: `const DEBUG = false; if (DEBUG) console.log(...)`
+- [ ] Add placeholder text to textarea (e.g., "Ask anything…") for better UX
+- [ ] Ensure applyMessageUpdate never clobbers streaming parts unless incoming.parts is explicitly present
+- [ ] Add throttling or "stick to bottom" guard to prevent scroll jank during streaming
+
+### Benefits of this refactor
+
+- Simpler App.tsx (440 lines → ~100 lines) with clear separation of concerns
+- Better testability with pure message update helpers
+- Safer streaming updates with no special-case "thinking" message
+- Cleaner component boundaries (transport, state, presentation separated)
+- Easier to add new features (markdown rendering, virtualization, new part types)
+- Better type safety with centralized types.ts
+
+### Estimated effort
+
+- **Simple path**: 1-3 hours for core componentization and helper extraction
+- **Type safety & cleanups**: <1 hour for types.ts and small improvements
+- **Total**: 2-4 hours for complete refactor

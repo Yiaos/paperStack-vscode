@@ -1,4 +1,6 @@
+/* @jsxImportSource solid-js */
 import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
+import { ThinkingIndicator } from "./components/ThinkingIndicator";
 
 interface ToolState {
   status: "pending" | "running" | "completed" | "error";
@@ -23,7 +25,7 @@ interface MessagePart {
 
 interface Message {
   id: string;
-  type: "user" | "assistant" | "thinking";
+  type: "user" | "assistant";
   text?: string;
   parts?: MessagePart[];
 }
@@ -51,8 +53,8 @@ function App() {
   const [agents, setAgents] = createSignal<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = createSignal<string | null>(null);
   
-  let inputRef: HTMLTextAreaElement;
-  let messagesEndRef: HTMLDivElement;
+  let inputRef!: HTMLTextAreaElement;
+  let messagesEndRef!: HTMLDivElement;
 
   const hasMessages = () =>
     messages().some((m) => m.type === "user" || m.type === "assistant");
@@ -75,18 +77,6 @@ function App() {
           break;
         case "thinking":
           setIsThinking(message.isThinking);
-          if (message.isThinking) {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: "thinking",
-                type: "thinking",
-                text: "Thinking...",
-              },
-            ]);
-          } else {
-            setMessages((prev) => prev.filter((m) => m.id !== "thinking"));
-          }
           break;
         case "part-update": {
           // Streaming part update - SolidJS handles rapid updates efficiently
@@ -98,17 +88,14 @@ function App() {
           });
           
           setMessages((prev) => {
-            // Filter out thinking messages
-            const filtered = prev.filter((m) => m.id !== "thinking");
-            
             // Find or create the message for this part
-            const messageIndex = filtered.findIndex((m) => m.id === part.messageID);
+            const messageIndex = prev.findIndex((m) => m.id === part.messageID);
             
             if (messageIndex === -1) {
               // New message - create it
               console.log('[Webview] Creating new message:', part.messageID);
               return [
-                ...filtered,
+                ...prev,
                 {
                   id: part.messageID,
                   type: "assistant" as const,
@@ -117,7 +104,7 @@ function App() {
               ];
             } else {
               // Update existing message
-              const updated = [...filtered];
+              const updated = [...prev];
               const msg = { ...updated[messageIndex] };
               const parts = msg.parts || [];
               const partIndex = parts.findIndex((p) => p.id === part.id);
@@ -152,15 +139,14 @@ function App() {
           });
           
           setMessages((prev) => {
-            const filtered = prev.filter((m) => m.id !== "thinking");
-            const index = filtered.findIndex((m) => m.id === finalMessage.id);
+            const index = prev.findIndex((m) => m.id === finalMessage.id);
             
             if (index === -1) {
               // New message - create it
               // If it has parts, use them, otherwise create empty message that will be populated by part-update
               console.log('[Webview] Creating message from message-update');
               return [
-                ...filtered,
+                ...prev,
                 {
                   id: finalMessage.id,
                   type: finalMessage.role === "user" ? "user" as const : "assistant" as const,
@@ -170,7 +156,7 @@ function App() {
               ];
             } else {
               // Update existing message
-              const updated = [...filtered];
+              const updated = [...prev];
               const currentMsg = { ...updated[index] };
               
               // Update role if provided
@@ -191,31 +177,25 @@ function App() {
           break;
         }
         case "response":
-          setMessages((prev) => {
-            const filtered = prev.filter((m) => m.id !== "thinking");
-            return [
-              ...filtered,
-              {
-                id: Date.now().toString(),
-                type: "assistant" as const,
-                text: message.text,
-                parts: message.parts,
-              },
-            ];
-          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              type: "assistant" as const,
+              text: message.text,
+              parts: message.parts,
+            },
+          ]);
           break;
         case "error":
-          setMessages((prev) => {
-            const filtered = prev.filter((m) => m.id !== "thinking");
-            return [
-              ...filtered,
-              {
-                id: Date.now().toString(),
-                type: "assistant" as const,
-                text: `Error: ${message.message}`,
-              },
-            ];
-          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              type: "assistant" as const,
+              text: `Error: ${message.message}`,
+            },
+          ]);
           break;
       }
     };
@@ -413,40 +393,17 @@ function App() {
       </Show>
 
       <div class="messages-container">
-        <For each={messages()}>
-          {(message) => {
-            if (message.type === "thinking") {
-              return (
-                <details
-                  class="message message--thinking"
-                  open
-                >
-                  <summary>
-                    <span class="thinking-icon"></span>
-                    <span>Thinking...</span>
-                  </summary>
-                </details>
-              );
-            }
+        <For each={messages()}>{(message) => (
+          <div class={`message message--${message.type}`}>
+            <div class="message-content">
+              <Show when={message.parts} fallback={message.text}>
+                <For each={message.parts}>{(part) => renderMessagePart(part)}</For>
+              </Show>
+            </div>
+          </div>
+        )}</For>
 
-            return (
-              <div
-                class={`message message--${message.type}`}
-              >
-                <div class="message-content">
-                  <Show
-                    when={message.parts}
-                    fallback={message.text}
-                  >
-                    <For each={message.parts}>
-                      {(part) => renderMessagePart(part)}
-                    </For>
-                  </Show>
-                </div>
-              </div>
-            );
-          }}
-        </For>
+        <ThinkingIndicator when={isThinking()} />
 
         <div ref={messagesEndRef!} />
       </div>
