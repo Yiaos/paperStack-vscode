@@ -53,16 +53,16 @@ Fine-tune focus border and padding for cleaner, more compact appearance:
    - More subtle focus indicator
 
 2. **Updated Prompt Input Padding:**
-   - Changed `padding: 8px 12px;` to `padding: 4px;`
-   - More compact appearance
+   - Changed `padding: 8px 12px;` to `padding: 6px;`
+   - More compact appearance with balanced spacing
 
 3. **Updated User Message Padding:**
-   - Changed `padding: 8px;` to `padding: 4px;`
+   - Changed `padding: 8px;` to `padding: 6px;`
    - Consistent with prompt input
 
 4. **Updated Assistant Message Padding:**
-   - Changed `padding: 4px 0;` to `padding: 4px;`
-   - Now has consistent horizontal padding
+   - Changed `padding: 4px 0;` to `padding: 6px;`
+   - Now has consistent padding all around
 
 ### Files Modified
 
@@ -71,5 +71,6 @@ Fine-tune focus border and padding for cleaner, more compact appearance:
 ### Impact
 
 - Cleaner, more subtle focus indicator (1px vs 2px)
-- More compact layout with 4px padding throughout
+- More compact layout with 6px padding throughout
 - Consistent padding on all message types and input
+- Better balance between compactness and readability

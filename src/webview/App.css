@@ -31,7 +31,7 @@ body {
   width: 100%;
   min-height: 36px;
   max-height: 120px;
-  padding: 4px;
+  padding: 6px;
   border: 1px solid var(--vscode-input-border);
   border-radius: 4px;
   background-color: var(--vscode-input-background);
@@ -203,7 +203,7 @@ body {
 
 .message--user .message-content {
   width: 100%;
-  padding: 4px;
+  padding: 6px;
   background-color: var(--vscode-input-background);
   border: 1px solid var(--vscode-input-border);
   border-radius: 4px;
@@ -216,7 +216,7 @@ body {
 
 .message--assistant .message-content {
   width: 100%;
-  padding: 4px;
+  padding: 6px;
   background-color: transparent;
   color: var(--vscode-foreground);
   line-height: 1.6;

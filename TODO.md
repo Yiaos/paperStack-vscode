@@ -64,10 +64,10 @@
   - **Details**: Refactored input buttons to use document flow instead of absolute positioning, removed wrapper div and inline padding styles. Unified all backgrounds to sideBar-background for consistency. Removed border/divider in empty state. Added 20px line-height to prompt input and user messages for better readability. Added first-child/last-child margin removal for message text. Updated tool call background to use `color-mix(in oklab, var(--vscode-editor-background) 60%, transparent)` for subtle semi-transparent effect.
   - **Documentation**: See [docs/todos/style-refinements-round-2.md](docs/todos/style-refinements-round-2.md)
 
-- [x] Focus border and padding refinements: Make prompt input focus border 1px, and update padding to 4px all around for prompt input and messages
+- [x] Focus border and padding refinements: Make prompt input focus border 1px, and update padding to 6px all around for prompt input and messages
 
   - **Status**: Completed - focus border thinned and padding made consistent
-  - **Details**: Changed prompt input focus-visible box-shadow from 2px to 1px for more subtle focus indicator. Updated padding to 4px all around for prompt input (was 8px 12px), user messages (was 8px), and assistant messages (was 4px 0). Creates more compact, consistent appearance throughout the interface.
+  - **Details**: Changed prompt input focus-visible box-shadow from 2px to 1px for more subtle focus indicator. Updated padding to 6px all around for prompt input (was 8px 12px), user messages (was 8px), and assistant messages (was 4px 0). Creates more compact, consistent appearance throughout the interface with better balance between compactness and readability.
   - **Documentation**: See [docs/todos/style-refinements-focus-padding.md](docs/todos/style-refinements-focus-padding.md)
 
 - [ ] Markdown support in assistant messages
