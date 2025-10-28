@@ -76,9 +76,16 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _handleStreamEvent(event: Event) {
-    console.log('Stream event:', event.type, event);
+    console.log('[ViewProvider] Stream event:', event.type);
     
     if (event.type === 'message.part.updated') {
+      const part = event.properties.part;
+      console.log('[ViewProvider] Sending part-update to webview:', {
+        partId: part.id,
+        partType: part.type,
+        messageID: part.messageID
+      });
+      
       // Forward part updates to webview for real-time display
       this._sendMessage({
         type: 'part-update',
@@ -86,6 +93,10 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
         delta: event.properties.delta
       });
     } else if (event.type === 'message.updated') {
+      console.log('[ViewProvider] Sending message-update to webview:', {
+        messageId: event.properties.info.id
+      });
+      
       // Full message update (can use for final state)
       this._sendMessage({
         type: 'message-update',
@@ -93,7 +104,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       });
     } else if (event.type === 'session.idle') {
       // Session finished processing
-      console.log('Session idle - streaming complete');
+      console.log('[ViewProvider] Session idle - streaming complete');
     }
     // Add more event handlers as needed
   }

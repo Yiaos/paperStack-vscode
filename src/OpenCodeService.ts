@@ -4,6 +4,16 @@ import * as fs from 'fs';
 import { createOpencode, type OpencodeClient } from '@opencode-ai/sdk';
 import type { Session, Config, Event } from '@opencode-ai/sdk';
 
+// Debug logging to file
+const debugLogPath = path.join(require('os').tmpdir(), 'opencode-vscode-debug.log');
+function debugLog(message: string, data?: any) {
+  const timestamp = new Date().toISOString();
+  const logLine = `[${timestamp}] ${message}${data ? '\n' + JSON.stringify(data, null, 2) : ''}\n`;
+  fs.appendFileSync(debugLogPath, logLine);
+  console.log(message, data);
+}
+debugLog(`=== OpenCode VSCode Debug Log Started ===\nLog file: ${debugLogPath}`);
+
 interface OpencodeInstance {
   client: OpencodeClient;
   server: {
@@ -227,14 +237,14 @@ export class OpenCodeService {
 
     // Use the workspace directory used to start the server
     const directory = this.workspaceDir || process.cwd();
-    console.log(`Subscribing to SSE events for directory: ${directory}`);
+    debugLog(`[sendPromptStreaming] Starting for session ${sid}`, { directory, text });
 
     // Subscribe to SSE events BEFORE sending the prompt to avoid missing events
     const sseResult = await this.opencode.client.event.subscribe({
       query: { directory }
     });
 
-    console.log('SSE subscription established, sending prompt...');
+    debugLog('[sendPromptStreaming] SSE subscription established, sending prompt...');
 
     // Now send the prompt (don't await yet)
     const promptPromise = this.opencode.client.session.prompt({
@@ -250,35 +260,38 @@ export class OpenCodeService {
     try {
       for await (const event of sseResult.stream) {
         eventCount++;
-        if (eventCount === 1) {
-          console.log('First SSE event received:', event);
-        }
         
         // Filter for events related to our session
         const typedEvent = event as Event;
         const props = (typedEvent as any).properties ?? {};
         const evSessionID = props.sessionID as string | undefined;
         
-        // Only process events for our session (or global events without sessionID)
+        // Log all events for our session
         if (!evSessionID || evSessionID === sid) {
+          debugLog(`[SSE Event #${eventCount}] ${typedEvent.type}`, {
+            sessionID: evSessionID,
+            properties: props
+          });
+          
           onEvent(typedEvent);
           
           // Stop streaming when session goes idle
           if (typedEvent.type === 'session.idle') {
-            console.log(`Session idle after ${eventCount} events, stopping stream`);
+            debugLog(`[sendPromptStreaming] Session idle after ${eventCount} events, stopping stream`);
             break;
           }
         }
       }
     } catch (error) {
-      console.error('SSE streaming error:', error);
+      debugLog('[sendPromptStreaming] SSE streaming error', error);
       throw error;
     } finally {
       // Close the SSE connection to avoid leaks
       try {
         (sseResult as any).close?.();
+        debugLog('[sendPromptStreaming] SSE stream closed');
       } catch (e) {
-        console.warn('Failed to close SSE stream:', e);
+        debugLog('[sendPromptStreaming] Failed to close SSE stream', e);
       }
     }
 

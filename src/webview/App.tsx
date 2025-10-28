@@ -71,6 +71,12 @@ function App() {
         case "part-update": {
           // Streaming part update - update message in real-time
           const { part, delta } = message;
+          console.log('[Webview] part-update received:', {
+            partId: part.id,
+            partType: part.type,
+            messageID: part.messageID,
+            hasDelta: !!delta
+          });
           
           setMessages((prev) => {
             // Filter out thinking messages
@@ -81,6 +87,7 @@ function App() {
             
             if (messageIndex === -1) {
               // New message - create it
+              console.log('[Webview] Creating new message:', part.messageID);
               return [
                 ...filtered,
                 {
@@ -98,9 +105,11 @@ function App() {
               
               if (partIndex === -1) {
                 // New part - append it
+                console.log('[Webview] Adding new part to message:', part.id);
                 msg.parts = [...parts, part];
               } else {
                 // Update existing part
+                console.log('[Webview] Updating existing part:', part.id);
                 msg.parts = [...parts];
                 msg.parts[partIndex] = part;
                 
@@ -114,6 +123,7 @@ function App() {
               }
               
               updated[messageIndex] = msg;
+              console.log('[Webview] Message now has', msg.parts.length, 'parts');
               return updated;
             }
           });
