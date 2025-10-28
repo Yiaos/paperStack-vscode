@@ -149,7 +149,7 @@ export class OpenCodeService {
         return;
       }
 
-      const activeConfig = configResult.data;
+      const activeConfig = configResult.data!;
       console.log(
         "Active OpenCode config:",
         JSON.stringify(activeConfig, null, 2)

@@ -345,59 +345,30 @@ function App() {
   };
 
   const AgentSwitcher = () => {
-    const [isOpen, setIsOpen] = createSignal(false);
-    
     const currentAgent = () => {
       const name = selectedAgent();
       return agents().find(a => a.name === name);
     };
     
-    // Close dropdown when clicking outside
-    createEffect(() => {
-      if (isOpen()) {
-        const handleClickOutside = () => setIsOpen(false);
-        setTimeout(() => {
-          document.addEventListener('click', handleClickOutside, { once: true });
-        }, 0);
-      }
-    });
+    const cycleAgent = () => {
+      const agentList = agents();
+      if (agentList.length === 0) return;
+      
+      const currentIndex = agentList.findIndex(a => a.name === selectedAgent());
+      const nextIndex = (currentIndex + 1) % agentList.length;
+      setSelectedAgent(agentList[nextIndex].name);
+    };
     
     return (
-      <div class="agent-switcher">
-        <button
-          type="button"
-          class="agent-switcher-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(!isOpen());
-          }}
-          aria-label="Switch agent"
-        >
-          {currentAgent()?.name || 'Agent'}
-        </button>
-        <Show when={isOpen()}>
-          <div class="agent-dropdown">
-            <For each={agents()}>
-              {(agent) => (
-                <button
-                  type="button"
-                  class={`agent-option ${selectedAgent() === agent.name ? 'selected' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedAgent(agent.name);
-                    setIsOpen(false);
-                  }}
-                >
-                  <div class="agent-option-name">{agent.name}</div>
-                  <Show when={agent.description}>
-                    <div class="agent-option-description">{agent.description}</div>
-                  </Show>
-                </button>
-              )}
-            </For>
-          </div>
-        </Show>
-      </div>
+      <button
+        type="button"
+        class="agent-switcher-button"
+        onClick={cycleAgent}
+        aria-label="Switch agent"
+        title={currentAgent()?.description || 'Switch agent'}
+      >
+        {currentAgent()?.name || 'Agent'}
+      </button>
     );
   };
 
