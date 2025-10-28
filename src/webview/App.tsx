@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
 
 interface ToolState {
   status: "pending" | "running" | "completed" | "error";
@@ -33,28 +33,26 @@ declare const acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
 
 function App() {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const updateTimeoutRef = useRef<number | null>(null);
+  const [input, setInput] = createSignal("");
+  const [messages, setMessages] = createSignal<Message[]>([]);
+  const [isThinking, setIsThinking] = createSignal(false);
+  const [isReady, setIsReady] = createSignal(false);
+  
+  let inputRef: HTMLTextAreaElement;
+  let messagesEndRef: HTMLDivElement;
+  let updateTimeoutRef: number | null = null;
 
-  const hasMessages = messages.some(
-    (m) => m.type === "user" || m.type === "assistant"
-  );
+  const hasMessages = () =>
+    messages().some((m) => m.type === "user" || m.type === "assistant");
 
   // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
-    };
-  }, []);
+  onCleanup(() => {
+    if (updateTimeoutRef) {
+      clearTimeout(updateTimeoutRef);
+    }
+  });
 
-  useEffect(() => {
+  onMount(() => {
     // Listen for messages from extension
     const messageHandler = (event: MessageEvent) => {
       const message = event.data;
@@ -107,7 +105,7 @@ function App() {
                   ...filtered,
                   {
                     id: part.messageID,
-                    type: "assistant",
+                    type: "assistant" as const,
                     parts: [part],
                   },
                 ];
@@ -139,10 +137,10 @@ function App() {
           
           if (shouldThrottle) {
             // Throttle text updates
-            if (updateTimeoutRef.current) {
-              clearTimeout(updateTimeoutRef.current);
+            if (updateTimeoutRef) {
+              clearTimeout(updateTimeoutRef);
             }
-            updateTimeoutRef.current = window.setTimeout(updateMessage, 100);
+            updateTimeoutRef = window.setTimeout(updateMessage, 100);
           } else {
             // Immediate update for tool calls and other non-text parts
             updateMessage();
@@ -171,7 +169,7 @@ function App() {
                 ...filtered,
                 {
                   id: finalMessage.id,
-                  type: finalMessage.role === "user" ? "user" : "assistant",
+                  type: finalMessage.role === "user" ? "user" as const : "assistant" as const,
                   parts: finalMessage.parts || [],
                   text: finalMessage.text,
                 },
@@ -179,11 +177,11 @@ function App() {
             } else {
               // Update existing message
               const updated = [...filtered];
-              const currentMsg = updated[index];
+              const currentMsg = { ...updated[index] };
               
               // Update role if provided
               if (finalMessage.role) {
-                currentMsg.type = finalMessage.role === "user" ? "user" : "assistant";
+                currentMsg.type = finalMessage.role === "user" ? "user" as const : "assistant" as const;
               }
               
               // Only update parts if the new message has parts
@@ -205,7 +203,7 @@ function App() {
               ...filtered,
               {
                 id: Date.now().toString(),
-                type: "assistant",
+                type: "assistant" as const,
                 text: message.text,
                 parts: message.parts,
               },
@@ -219,7 +217,7 @@ function App() {
               ...filtered,
               {
                 id: Date.now().toString(),
-                type: "assistant",
+                type: "assistant" as const,
                 text: `Error: ${message.message}`,
               },
             ];
@@ -233,48 +231,55 @@ function App() {
     // Tell extension we're ready
     vscode.postMessage({ type: "ready" });
 
-    return () => window.removeEventListener("message", messageHandler);
-  }, []);
+    onCleanup(() => window.removeEventListener("message", messageHandler));
+  });
 
-  useEffect(() => {
-    // Auto-scroll to bottom when messages change
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isThinking]);
+  // Auto-scroll to bottom when messages change
+  createEffect(() => {
+    // Access signals to track them
+    messages();
+    isThinking();
+    // Scroll after render
+    setTimeout(() => {
+      messagesEndRef?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
+  });
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = () => {
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-      inputRef.current.style.height = `${Math.min(
-        inputRef.current.scrollHeight,
+    if (inputRef) {
+      inputRef.style.height = "auto";
+      inputRef.style.height = `${Math.min(
+        inputRef.scrollHeight,
         120
       )}px`;
     }
   };
 
   // Adjust height when input changes
-  useEffect(() => {
+  createEffect(() => {
+    input(); // Track input signal
     adjustTextareaHeight();
-  }, [input]);
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: Event) => {
     e.preventDefault();
 
-    if (!input.trim() || isThinking) {
+    if (!input().trim() || isThinking()) {
       return;
     }
 
     // Send to extension - the user message will be added via SSE stream
     vscode.postMessage({
       type: "sendPrompt",
-      text: input,
+      text: input(),
     });
 
     // Clear input
     setInput("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit(e);
@@ -296,36 +301,35 @@ function App() {
 
     return (
       <details
-        key={part.id}
-        className="tool-call"
+        class="tool-call"
         open={state.status === "running"}
       >
         <summary>
-          <span className="tool-icon">{statusIcon}</span>
-          <span className="tool-name">{statusLabel}</span>
-          <span className="tool-status">{state.status}</span>
+          <span class="tool-icon">{statusIcon}</span>
+          <span class="tool-name">{statusLabel}</span>
+          <span class="tool-status">{state.status}</span>
         </summary>
-        <div className="tool-details">
-          {state.input && (
-            <div className="tool-section">
-              <div className="tool-section-label">Input:</div>
-              <pre className="tool-content">
+        <div class="tool-details">
+          <Show when={state.input}>
+            <div class="tool-section">
+              <div class="tool-section-label">Input:</div>
+              <pre class="tool-content">
                 {JSON.stringify(state.input, null, 2)}
               </pre>
             </div>
-          )}
-          {state.output && (
-            <div className="tool-section">
-              <div className="tool-section-label">Output:</div>
-              <pre className="tool-content">{state.output}</pre>
+          </Show>
+          <Show when={state.output}>
+            <div class="tool-section">
+              <div class="tool-section-label">Output:</div>
+              <pre class="tool-content">{state.output}</pre>
             </div>
-          )}
-          {state.error && (
-            <div className="tool-section">
-              <div className="tool-section-label">Error:</div>
-              <pre className="tool-content tool-error">{state.error}</pre>
+          </Show>
+          <Show when={state.error}>
+            <div class="tool-section">
+              <div class="tool-section-label">Error:</div>
+              <pre class="tool-content tool-error">{state.error}</pre>
             </div>
-          )}
+          </Show>
         </div>
       </details>
     );
@@ -335,18 +339,18 @@ function App() {
     switch (part.type) {
       case "text":
         return part.text ? (
-          <div key={part.id} className="message-text">
+          <div class="message-text">
             {part.text}
           </div>
         ) : null;
       case "reasoning":
         return (
-          <details key={part.id} className="reasoning-block" open>
+          <details class="reasoning-block" open>
             <summary>
-              <span className="thinking-icon"></span>
+              <span class="thinking-icon"></span>
               <span>Reasoning</span>
             </summary>
-            <div className="reasoning-content">{part.text}</div>
+            <div class="reasoning-content">{part.text}</div>
           </details>
         );
       case "tool":
@@ -361,23 +365,23 @@ function App() {
   };
 
   const renderInput = () => (
-    <form className="input-container" onSubmit={handleSubmit}>
-      <div className="textarea-wrapper">
+    <form class="input-container" onSubmit={handleSubmit}>
+      <div class="textarea-wrapper">
         <textarea
-          ref={inputRef}
-          className="prompt-input"
+          ref={inputRef!}
+          class="prompt-input"
           placeholder={
-            isReady ? "Ask OpenCode anything..." : "Initializing OpenCode..."
+            isReady() ? "Ask OpenCode anything..." : "Initializing OpenCode..."
           }
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
+          value={input()}
+          onInput={(e) => setInput(e.currentTarget.value)}
           onKeyDown={handleKeyDown}
-          disabled={!isReady || isThinking}
+          disabled={!isReady() || isThinking()}
         />
         <button
           type="submit"
-          className="shortcut-button"
-          disabled={!isReady || isThinking || !input.trim()}
+          class="shortcut-button"
+          disabled={!isReady() || isThinking() || !input().trim()}
           aria-label="Submit (Cmd+Enter)"
         >
           ⌘⏎
@@ -387,53 +391,62 @@ function App() {
   );
 
   return (
-    <div className={`app ${hasMessages ? "app--has-messages" : ""}`}>
-      {!hasMessages && renderInput()}
+    <div class={`app ${hasMessages() ? "app--has-messages" : ""}`}>
+      <Show when={!hasMessages()}>
+        {renderInput()}
+      </Show>
 
-      <div className="messages-container">
-        {messages.length === 0 && !isThinking && (
-          <div className="welcome-message">
+      <div class="messages-container">
+        <Show when={messages().length === 0 && !isThinking()}>
+          <div class="welcome-message">
             <p>
               Hello! I'm OpenCode, ready to help you with your OpenCode VSCode
               extension. What would you like to work on?
             </p>
           </div>
-        )}
+        </Show>
 
-        {messages.map((message) => {
-          if (message.type === "thinking") {
+        <For each={messages()}>
+          {(message) => {
+            if (message.type === "thinking") {
+              return (
+                <details
+                  class="message message--thinking"
+                  open
+                >
+                  <summary>
+                    <span class="thinking-icon"></span>
+                    <span>Thinking...</span>
+                  </summary>
+                </details>
+              );
+            }
+
             return (
-              <details
-                key={message.id}
-                className="message message--thinking"
-                open
+              <div
+                class={`message message--${message.type}`}
               >
-                <summary>
-                  <span className="thinking-icon"></span>
-                  <span>Thinking...</span>
-                </summary>
-              </details>
-            );
-          }
-
-          return (
-            <div
-              key={message.id}
-              className={`message message--${message.type}`}
-            >
-              <div className="message-content">
-                {message.parts
-                  ? message.parts.map((part) => renderMessagePart(part))
-                  : message.text}
+                <div class="message-content">
+                  <Show
+                    when={message.parts}
+                    fallback={message.text}
+                  >
+                    <For each={message.parts}>
+                      {(part) => renderMessagePart(part)}
+                    </For>
+                  </Show>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          }}
+        </For>
 
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef!} />
       </div>
 
-      {hasMessages && renderInput()}
+      <Show when={hasMessages()}>
+        {renderInput()}
+      </Show>
     </div>
   );
 }

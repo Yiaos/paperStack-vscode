@@ -46,10 +46,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.x",
-    "@types/react": "^18.x",
-    "@types/react-dom": "^18.x",
     "@types/vscode": "^1.74.0",
-    "@vitejs/plugin-react": "^4.x",
     "concurrently": "^8.x",
     "typescript": "^5.x",
     "vite": "^5.x",
@@ -57,7 +54,7 @@
   },
   "dependencies": {
     "@opencode-ai/sdk": "^0.15.18",
-    "react": "^18.x",
-    "react-dom": "^18.x"
+    "solid-js": "^1.9.10",
+    "vite-plugin-solid": "^2.11.10"
   }
 }
