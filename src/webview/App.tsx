@@ -283,28 +283,14 @@ function App() {
           <span class="tool-name">{statusLabel}</span>
           <span class="tool-status">{state.status}</span>
         </summary>
-        <div class="tool-details">
-          <Show when={state.input}>
-            <div class="tool-section">
-              <div class="tool-section-label">Input:</div>
-              <pre class="tool-content">
-                {JSON.stringify(state.input, null, 2)}
-              </pre>
-            </div>
-          </Show>
-          <Show when={state.output}>
-            <div class="tool-section">
-              <div class="tool-section-label">Output:</div>
-              <pre class="tool-content">{state.output}</pre>
-            </div>
-          </Show>
-          <Show when={state.error}>
-            <div class="tool-section">
-              <div class="tool-section-label">Error:</div>
-              <pre class="tool-content tool-error">{state.error}</pre>
-            </div>
-          </Show>
-        </div>
+        <Show when={state.output || state.error}>
+          <pre 
+            class="tool-output" 
+            style="max-height: 80px; overflow: auto; font-family: monospace;"
+          >
+            {state.error || state.output}
+          </pre>
+        </Show>
       </details>
     );
   };
