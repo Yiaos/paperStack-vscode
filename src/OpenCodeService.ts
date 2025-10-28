@@ -52,41 +52,41 @@ export class OpenCodeService {
     }
 
     try {
-      // Load workspace config if available
-      const config = this.loadWorkspaceConfig(workspaceRoot);
+      // Check if workspace config exists (for logging)
+      const configPath = workspaceRoot
+        ? path.join(workspaceRoot, "opencode.json")
+        : null;
+      const hasWorkspaceConfig = configPath && fs.existsSync(configPath);
 
-      // Log config source for debugging
-      if (config) {
+      if (hasWorkspaceConfig) {
+        console.log(`✓ Found workspace config at: ${configPath}`);
         console.log(
-          `✓ Loaded workspace config from: ${path.join(
-            workspaceRoot!,
-            "opencode.json"
-          )}`
+          "  OpenCode will load it automatically from the working directory"
         );
-        console.log("Config values:", JSON.stringify(config, null, 2));
       } else {
         console.log(
-          "No workspace config found, will use OpenCode default config"
+          "No workspace config found, OpenCode will use default/global config"
         );
       }
 
       // Temporarily switch cwd so the SDK's spawn inherits the workspace as cwd
-      // OpenCode determines project context from the working directory
+      // OpenCode determines project context from the working directory and will
+      // automatically load opencode.json if present
       if (shouldChdir) {
         process.chdir(workspaceRoot as string);
       }
 
       // Create OpenCode instance with server and client
+      // Don't pass config here - let OpenCode load it from the workspace directory
       this.opencode = await createOpencode({
         hostname: "127.0.0.1",
         port: 0, // Let it choose a random available port
-        config: config || {},
       });
 
       console.log(`OpenCode server started at ${this.opencode.server.url}`);
 
-      // Verify the config was actually applied by querying the server
-      await this.verifyConfig(config);
+      // Log the active config after server starts
+      await this.logActiveConfig();
     } catch (error) {
       console.error("Failed to initialize OpenCode:", error);
       vscode.window.showErrorMessage(
@@ -106,37 +106,7 @@ export class OpenCodeService {
     }
   }
 
-  private loadWorkspaceConfig(workspaceRoot?: string): Partial<Config> | null {
-    if (!workspaceRoot) {
-      return null;
-    }
-
-    const configPath = path.join(workspaceRoot, "opencode.json");
-
-    if (fs.existsSync(configPath)) {
-      try {
-        const configContent = fs.readFileSync(configPath, "utf-8");
-        // Remove comments from JSON (simple approach)
-        const cleanedContent = configContent.replace(/\/\/.*$/gm, "");
-        const config = JSON.parse(cleanedContent) as Partial<Config>;
-        console.log(`Found workspace config at: ${configPath}`);
-        return config;
-      } catch (error) {
-        console.error("Failed to parse workspace opencode.json:", error);
-        vscode.window.showWarningMessage(
-          `Found opencode.json but failed to parse it: ${
-            (error as Error).message
-          }`
-        );
-      }
-    }
-
-    return null;
-  }
-
-  private async verifyConfig(
-    expectedConfig: Partial<Config> | null
-  ): Promise<void> {
+  private async logActiveConfig(): Promise<void> {
     if (!this.opencode) {
       return;
     }
@@ -145,38 +115,17 @@ export class OpenCodeService {
       const configResult = await this.opencode.client.config.get();
 
       if (configResult.error) {
-        console.warn("Failed to verify config:", configResult.error);
+        console.warn("Failed to get active config:", configResult.error);
         return;
       }
 
-      const activeConfig = configResult.data!;
+      const activeConfig = configResult.data;
       console.log(
-        "Active OpenCode config:",
+        "✓ Active OpenCode config:",
         JSON.stringify(activeConfig, null, 2)
       );
-
-      // If we loaded a workspace config, verify key settings match
-      if (expectedConfig) {
-        const verificationsNeeded = [];
-
-        if (
-          expectedConfig.model &&
-          activeConfig.model !== expectedConfig.model
-        ) {
-          verificationsNeeded.push(
-            `model (expected: ${expectedConfig.model}, got: ${activeConfig.model})`
-          );
-        }
-
-        if (verificationsNeeded.length > 0) {
-          console.warn("⚠️ Workspace config may not have been fully applied:");
-          verificationsNeeded.forEach((msg) => console.warn(`  - ${msg}`));
-        } else {
-          console.log("✓ Workspace config verified and active");
-        }
-      }
     } catch (error) {
-      console.warn("Error verifying config:", error);
+      console.warn("Error getting active config:", error);
     }
   }
 
