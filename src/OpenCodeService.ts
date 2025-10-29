@@ -1,24 +1,21 @@
 import type { Agent, Config, Event, Session } from "@opencode-ai/sdk";
 import { createOpencode, type OpencodeClient } from "@opencode-ai/sdk";
-import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
+import { getLogger } from "./extension";
 
-// Debug logging to file
-const debugLogPath = path.join(
-  require("os").tmpdir(),
-  "opencode-vscode-debug.log"
-);
+// Debug logging to VSCode output channel
 function debugLog(message: string, data?: any) {
-  // const timestamp = new Date().toISOString();
-  // const logLine = `[${timestamp}] ${message}${data ? '\n' + JSON.stringify(data, null, 2) : ''}\n`;
-  // fs.appendFileSync(debugLogPath, logLine);
-  console.log(message, data);
+  const logger = getLogger();
+  if (logger) {
+    if (data) {
+      logger.info(message, data);
+    } else {
+      logger.info(message);
+    }
+  }
 }
 
-debugLog(
-  `=== OpenCode VSCode Debug Log Started ===\nLog file: ${debugLogPath}`
-);
+debugLog("=== OpenCode VSCode Debug Log Started ===");
 
 interface OpencodeInstance {
   client: OpencodeClient;
@@ -252,7 +249,7 @@ export class OpenCodeService {
     const config = configResult.data;
 
     // Use the configured model or fallback to Claude
-    const model = config?.model || "anthropic/claude-3-5-sonnet-20241022";
+    const model = config?.model || "anthropic/claude-sonnet-4-5-20250929";
     const [providerID, modelID] = model.split("/");
 
     debugLog(
@@ -301,7 +298,7 @@ export class OpenCodeService {
     }
 
     const config = configResult.data;
-    const model = config?.model || "anthropic/claude-3-5-sonnet-20241022";
+    const model = config?.model || "anthropic/claude-sonnet-4-5-20250929";
     const [providerID, modelID] = model.split("/");
 
     // Use the workspace directory used to start the server

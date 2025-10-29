@@ -2,8 +2,22 @@ import * as vscode from "vscode";
 import { OpenCodeService } from "./OpenCodeService";
 import { OpenCodeViewProvider } from "./OpenCodeViewProvider";
 
+let logger: vscode.LogOutputChannel;
+
+export function getLogger(): vscode.LogOutputChannel {
+  return logger;
+}
+
 export async function activate(context: vscode.ExtensionContext) {
-  console.log("OpenCode extension is now active!");
+  // Create log channel - VSCode manages file location and timestamps automatically
+  logger = vscode.window.createOutputChannel("OpenCode", { log: true });
+  context.subscriptions.push(logger);
+
+  logger.info("OpenCode extension activated", {
+    timestamp: new Date().toISOString(),
+    workspaceFolder: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    extensionPath: context.extensionPath,
+  });
 
   // Create OpenCode service
   const openCodeService = new OpenCodeService();
@@ -13,9 +27,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   try {
     await openCodeService.initialize(workspaceRoot);
-    console.log("OpenCode service initialized");
+    logger.info("OpenCode service initialized successfully");
   } catch (error) {
-    console.error("Failed to initialize OpenCode service:", error);
+    logger.error("Failed to initialize OpenCode service", error);
     vscode.window.showErrorMessage(
       "Failed to start OpenCode. Please check your configuration."
     );
@@ -36,9 +50,9 @@ export async function activate(context: vscode.ExtensionContext) {
   // Cleanup on deactivation
   context.subscriptions.push(openCodeService);
 
-  console.log("OpenCode webview provider registered");
+  logger.info("OpenCode webview provider registered");
 }
 
 export function deactivate() {
-  console.log("OpenCode extension deactivated");
+  logger?.info("OpenCode extension deactivated");
 }

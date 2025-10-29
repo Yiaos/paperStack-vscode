@@ -94,6 +94,10 @@ Message flow:
 
 Build for production: `npm run build`
 
+## Debugging
+
+Extension logs: Command Palette → "Output" → Select "OpenCode" from dropdown
+
 ## API Configuration Required
 
 For the extension to work, users need:

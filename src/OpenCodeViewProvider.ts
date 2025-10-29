@@ -5,6 +5,7 @@ import type { Event } from '@opencode-ai/sdk';
 export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'opencode.chatView';
   private _view?: vscode.WebviewView;
+  private _activeSessionId?: string;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -93,11 +94,17 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
 
   private async _handleSwitchSession(sessionId: string) {
     try {
+      this._activeSessionId = sessionId;
       await this._openCodeService.switchSession(sessionId);
+      
+      // Load messages from the session
+      const messages = await this._openCodeService.getMessages(sessionId);
+      
       this._sendMessage({
         type: 'session-switched',
         sessionId,
-        title: this._openCodeService.getCurrentSessionTitle()
+        title: this._openCodeService.getCurrentSessionTitle(),
+        messages
       });
     } catch (error) {
       console.error('Error switching session:', error);
@@ -111,6 +118,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
   private async _handleCreateSession(title?: string) {
     try {
       const sessionId = await this._openCodeService.createNewSession(title);
+      this._activeSessionId = sessionId;
       this._sendMessage({
         type: 'session-switched',
         sessionId,
@@ -132,10 +140,12 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       // Send thinking state
       this._sendMessage({ type: 'thinking', isThinking: true });
 
-      // Create session if needed
-      let sessionId = await this._openCodeService.getCurrentSession();
+      // Prefer the locally tracked session; fallback to service
+      let sessionId = this._activeSessionId || await this._openCodeService.getCurrentSession();
+      const isNewSession = !sessionId;
       if (!sessionId) {
         sessionId = await this._openCodeService.createSession();
+        this._activeSessionId = sessionId;
       }
 
       // Send the prompt with streaming, including selected agent
@@ -147,6 +157,16 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       );
 
       this._sendMessage({ type: 'thinking', isThinking: false });
+
+      // If this was a new session, reload the session list and notify about the switch
+      if (isNewSession) {
+        this._sendMessage({
+          type: 'session-switched',
+          sessionId,
+          title: this._openCodeService.getCurrentSessionTitle()
+        });
+        await this._handleLoadSessions();
+      }
     } catch (error) {
       console.error('Error sending prompt:', error);
       this._sendMessage({
@@ -157,7 +177,22 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private _getEventSessionId(event: Event): string | undefined {
+    const e: any = event;
+    return e?.properties?.sessionID
+        ?? e?.properties?.info?.sessionID
+        ?? e?.properties?.part?.sessionID
+        ?? e?.sessionID
+        ?? e?.properties?.session?.id;
+  }
+
   private _handleStreamEvent(event: Event) {
+    const evSessionId = this._getEventSessionId(event);
+    if (this._activeSessionId && evSessionId && evSessionId !== this._activeSessionId) {
+      console.log('[ViewProvider] Ignoring stream event for inactive session:', evSessionId, 'active:', this._activeSessionId, 'type:', event.type);
+      return;
+    }
+
     console.log('[ViewProvider] Stream event:', event.type);
     
     if (event.type === 'message.part.updated') {
@@ -172,7 +207,8 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       this._sendMessage({
         type: 'part-update',
         part: event.properties.part,
-        delta: event.properties.delta
+        delta: event.properties.delta,
+        sessionId: evSessionId
       });
     } else if (event.type === 'message.updated') {
       console.log('[ViewProvider] Sending message-update to webview:', {
@@ -182,7 +218,8 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       // Full message update (can use for final state)
       this._sendMessage({
         type: 'message-update',
-        message: event.properties.info
+        message: event.properties.info,
+        sessionId: evSessionId
       });
     } else if (event.type === 'session.idle') {
       // Session finished processing
