@@ -57,7 +57,7 @@ export interface IncomingMessage {
 }
 
 export type HostMessage =
-  | { type: "init"; ready: boolean }
+  | { type: "init"; ready: boolean; workspaceRoot?: string }
   | { type: "agentList"; agents: Agent[] }
   | { type: "thinking"; isThinking: boolean }
   | { type: "part-update"; part: MessagePart & { messageID: string } }
@@ -65,7 +65,7 @@ export type HostMessage =
   | { type: "response"; text?: string; parts?: MessagePart[] }
   | { type: "error"; message: string }
   | { type: "session-list"; sessions: Session[] }
-  | { type: "session-switched"; sessionId: string; title: string };
+  | { type: "session-switched"; sessionId: string; title: string; messages?: IncomingMessage[] };
 
 export type WebviewMessage =
   | { type: "ready" }

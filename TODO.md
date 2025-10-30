@@ -181,7 +181,11 @@
   - **Details**: Created TopBar component with SessionSwitcher (dropdown showing all sessions with titles and timestamps) and NewSessionButton (+ button). Backend fully wired up with OpenCode API session management (list, create, switch). Session titles ARE supported by OpenCode SDK. Top bar separated from messages with border divider. All styled using VSCode theme variables.
   - **Documentation**: See [docs/todos/session-switcher.md](docs/todos/session-switcher.md)
   - **Known Limitations**: No message history loading when switching sessions, session titles not editable, no session deletion, no persistence across reloads, dropdown doesn't close on outside click
-  
+
+- [x] Better tool calls. The tool calls are really ugly right now.
 - [ ] Markdown support in assistant messages
+- [ ] diff support in patch tool
+- [ ] diagnostics
 - [ ] @-mention support
-- [ ] Better tool calls
+- [ ] Settings panel
+- [ ] Model switcher

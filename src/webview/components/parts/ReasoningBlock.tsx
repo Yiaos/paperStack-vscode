@@ -7,10 +7,9 @@ interface ReasoningBlockProps {
 
 export function ReasoningBlock(props: ReasoningBlockProps) {
   return (
-    <details class="reasoning-block" open>
+    <details class="reasoning-block">
       <summary>
-        <span class="thinking-icon"></span>
-        <span>Reasoning</span>
+        <span>Thinking</span>
       </summary>
       <div class="reasoning-content">{props.part.text}</div>
     </details>

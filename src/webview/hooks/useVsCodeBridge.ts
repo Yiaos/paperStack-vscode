@@ -5,7 +5,7 @@ declare const acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
 
 export interface VsCodeBridgeCallbacks {
-  onInit: (ready: boolean) => void;
+  onInit: (ready: boolean, workspaceRoot?: string) => void;
   onAgentList: (agents: Agent[]) => void;
   onThinking: (isThinking: boolean) => void;
   onPartUpdate: (part: MessagePart & { messageID: string }) => void;
@@ -13,7 +13,7 @@ export interface VsCodeBridgeCallbacks {
   onResponse: (payload: { text?: string; parts?: MessagePart[] }) => void;
   onError: (message: string) => void;
   onSessionList: (sessions: Session[]) => void;
-  onSessionSwitched: (sessionId: string, title: string) => void;
+  onSessionSwitched: (sessionId: string, title: string, messages?: IncomingMessage[]) => void;
 }
 
 export function useVsCodeBridge(callbacks: VsCodeBridgeCallbacks) {
@@ -23,7 +23,7 @@ export function useVsCodeBridge(callbacks: VsCodeBridgeCallbacks) {
 
       switch (message.type) {
         case "init":
-          callbacks.onInit(message.ready);
+          callbacks.onInit(message.ready, message.workspaceRoot);
           break;
 
         case "agentList":
@@ -62,7 +62,7 @@ export function useVsCodeBridge(callbacks: VsCodeBridgeCallbacks) {
           break;
 
         case "session-switched":
-          callbacks.onSessionSwitched(message.sessionId, message.title);
+          callbacks.onSessionSwitched(message.sessionId, message.title, message.messages);
           break;
       }
     };

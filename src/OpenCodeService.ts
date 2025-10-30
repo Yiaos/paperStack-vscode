@@ -1,5 +1,7 @@
 import type { Agent, Config, Event, Session } from "@opencode-ai/sdk";
 import { createOpencode, type OpencodeClient } from "@opencode-ai/sdk";
+import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 import { getLogger } from "./extension";
 
@@ -14,8 +16,6 @@ function debugLog(message: string, data?: any) {
     }
   }
 }
-
-debugLog("=== OpenCode VSCode Debug Log Started ===");
 
 interface OpencodeInstance {
   client: OpencodeClient;
@@ -412,5 +412,9 @@ export class OpenCodeService {
 
   isReady(): boolean {
     return this.opencode !== null && !this.isInitializing;
+  }
+
+  getWorkspaceRoot(): string | undefined {
+    return this.workspaceDir;
   }
 }

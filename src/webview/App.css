@@ -19,25 +19,38 @@ body {
 /* Input Container */
 .input-container {
   padding: 8px;
-  background-color: var(--vscode-sideBar-background);
+  background-color: color-mix(in oklab, white 8%, var(--vscode-sideBar-background));
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  margin: 8px;
+}
+
+.input-container:focus-within {
+  border-color: var(--vscode-focusBorder);
 }
 
 .app--has-messages .input-container {
-  border-top: 1px solid var(--vscode-panel-border);
   flex-direction: column-reverse;
+}
+
+.input-divider {
+  height: 1px;
+  background-color: var(--vscode-input-border);
+  flex-shrink: 0;
+  margin: 0 8px;
 }
 
 .prompt-input {
   width: 100%;
   min-height: 36px;
   max-height: 120px;
-  padding: 6px;
-  border: 1px solid var(--vscode-input-border);
-  border-radius: 4px;
-  background-color: var(--vscode-input-background);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
   color: var(--vscode-input-foreground);
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
@@ -54,8 +67,6 @@ body {
 
 .prompt-input:focus-visible {
   outline: none;
-  border-color: var(--vscode-focusBorder);
-  box-shadow: 0 0 0 1px var(--vscode-focusBorder) inset;
 }
 
 .prompt-input:disabled {
@@ -73,12 +84,12 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .app--has-messages .input-buttons {
   margin-top: 0;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .shortcut-button {
@@ -92,7 +103,6 @@ body {
   font-size: 11px;
   cursor: pointer;
   opacity: 0.5;
-  transition: opacity 0.15s, background-color 0.15s;
   line-height: 1;
   user-select: none;
 }
@@ -124,67 +134,13 @@ body {
   background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-/* Thinking Block */
-.message--thinking {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-.message--thinking summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
-  list-style: none;
-  color: var(--vscode-descriptionForeground);
-  font-size: 13px;
-  user-select: none;
-  transition: background-color 0.15s ease;
-}
-
-.message--thinking summary:hover {
-  background-color: var(--vscode-list-hoverBackground);
-}
-
-.message--thinking[open] summary {
-  border-bottom: 1px solid var(--vscode-panel-border);
-}
-
-.message--thinking summary::-webkit-details-marker {
-  display: none;
-}
-
-.message--thinking[open] summary .thinking-icon::before {
-  content: '▾';
-}
-
-.message--thinking:not([open]) summary .thinking-icon::before {
-  content: '▸';
-}
-
-.thinking-icon {
+/* Loading Indicator */
+.loading-indicator {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 14px;
-}
-
-.message--thinking[open] .thinking-icon {
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .message--thinking[open] .thinking-icon {
-    animation: none;
-  }
+  color: var(--vscode-descriptionForeground);
+  padding: 8px;
+  user-select: none;
 }
 
 /* Messages Container */
@@ -211,7 +167,7 @@ body {
 
 .message--user .message-content {
   width: 100%;
-  padding: 4px;
+  padding: 6px;
   background-color: color-mix(in oklab, var(--vscode-input-background) 50%, transparent);
   border: 1px solid var(--vscode-input-border);
   border-radius: 4px;
@@ -290,84 +246,66 @@ body {
 
 /* Tool Call Styles */
 .tool-call {
-  max-width: 100%;
-  width: 100%;
-  margin: 8px 0;
-  padding: 8px;
-  border: 1px solid var(--vscode-panel-border);
+  padding: 6px;
+  border: 1px solid color-mix(in oklab,var(--vscode-input-border) 60%, var(--vscode-sideBar-background));
   border-radius: 4px;
-  overflow: hidden;
-  background-color: color-mix(in oklab, var(--vscode-editor-background) 60%, transparent);
-  content-visibility: auto;
-  contain-intrinsic-size: 0 120px;
+  background-color: var(--vscode-sideBar-background);
+  font-size: 13px;
 }
 
-.tool-call summary {
+.tool-call-light {
+  padding: 2px 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tool-header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  padding: 0;
-  cursor: pointer;
-  list-style: none;
+}
+
+.tool-text {
+  flex: 1;
   color: var(--vscode-foreground);
   font-size: 13px;
-  font-weight: normal;
-  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tool-call summary::-webkit-details-marker {
-  display: none;
+.tool-file-path {
+  display: flex;
+  overflow: hidden;
 }
 
-.tool-icon {
-  font-size: 14px;
+.tool-file-dir {
+  color: color-mix(in oklab, var(--vscode-foreground) 50%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+.tool-file-name {
+  color: var(--vscode-foreground);
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.tool-name {
-  flex: 1;
-  font-weight: 500;
-}
-
-.tool-status {
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background-color: var(--vscode-badge-background);
-  color: var(--vscode-badge-foreground);
-  text-transform: uppercase;
-}
-
-.tool-details {
-  padding-top: 8px;
-  padding-left: 22px;
-}
-
-.tool-section {
-  margin-top: 8px;
-}
-
-.tool-section-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--vscode-descriptionForeground);
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.tool-content {
-  margin: 0;
+.tool-output {
+  margin: 8px 0 0 0;
   padding: 8px;
   background-color: var(--vscode-textCodeBlock-background);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 4px;
-  font-family: var(--vscode-editor-font-family);
+  font-family: var(--vscode-font-family);
   font-size: 12px;
   color: var(--vscode-foreground);
   overflow-x: auto;
   white-space: pre-wrap;
+  max-height: 80px;
+  overflow-y: auto;
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
@@ -390,51 +328,29 @@ body {
 
 /* Reasoning Block */
 .reasoning-block {
-  margin: 8px 0;
+  display: inline;
+  margin: 0;
   padding: 0;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  background-color: var(--vscode-editor-background);
-  content-visibility: auto;
-  contain-intrinsic-size: 0 120px;
 }
 
 .reasoning-block summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  display: inline;
   cursor: pointer;
   list-style: none;
-  color: var(--vscode-descriptionForeground);
+  color: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
   font-size: 13px;
+  font-weight: 500;
   user-select: none;
-  transition: background-color 0.15s ease;
-}
-
-.reasoning-block summary:hover {
-  background-color: var(--vscode-list-hoverBackground);
-}
-
-.reasoning-block[open] summary {
-  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .reasoning-block summary::-webkit-details-marker {
   display: none;
 }
 
-.reasoning-block[open] summary .thinking-icon::before {
-  content: '▾';
-}
-
-.reasoning-block:not([open]) summary .thinking-icon::before {
-  content: '▸';
-}
-
 .reasoning-content {
   padding: 8px 12px;
-  border-top: 1px solid var(--vscode-panel-border);
+  margin-top: 4px;
+  border-left: 2px solid var(--vscode-panel-border);
   color: var(--vscode-foreground);
   font-style: italic;
   line-height: 1.6;
@@ -499,7 +415,6 @@ body.vscode-high-contrast {
   font-size: 11px;
   cursor: pointer;
   opacity: 0.6;
-  transition: opacity 0.15s, background-color 0.15s;
   white-space: nowrap;
 }
 
@@ -536,24 +451,23 @@ body.vscode-high-contrast {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 4px 10px;
-  height: 27px;
-  border: 1px solid var(--vscode-panel-border);
+  padding: 6px 8px;
+  border: 1px solid color-mix(in oklab,var(--vscode-input-border) 60%, var(--vscode-sideBar-background));
   border-radius: 4px;
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
+  background-color: color-mix(in oklab, white 4%, var(--vscode-sideBar-background));
+  color: color-mix(in oklab, var(--vscode-foreground) 80%, var(--vscode-sideBar-background));
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
-  font-weight: 500;
+  font-weight: 550;
   cursor: pointer;
   text-align: left;
   user-select: none;
-  transition: all 0.15s;
 }
 
 .session-switcher-button:hover:not(:disabled) {
-  background-color: color-mix(in oklab, var(--vscode-list-hoverBackground) 30%, transparent);
-  border-color: var(--vscode-panel-border);
+  background-color: color-mix(in oklab, white 6%, var(--vscode-sideBar-background));
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-input-border);
 }
 
 .session-switcher-button:disabled {
@@ -572,6 +486,7 @@ body.vscode-high-contrast {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-bottom: 1px;
 }
 
 .dropdown-arrow {
@@ -598,10 +513,14 @@ body.vscode-high-contrast {
 }
 
 .session-item {
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
   cursor: pointer;
-  border-bottom: 1px solid var(--vscode-panel-border);
-  transition: background-color 0.15s;
+  border-bottom: 1px solid color-mix(in oklab,var(--vscode-input-border) 60%, var(--vscode-sideBar-background));
+  background-color: color-mix(in oklab, white 4%, var(--vscode-sideBar-background));
+  color: color-mix(in oklab, var(--vscode-foreground) 80%, var(--vscode-sideBar-background));
 }
 
 .session-item:last-child {
@@ -609,22 +528,33 @@ body.vscode-high-contrast {
 }
 
 .session-item:hover {
-  background-color: var(--vscode-list-hoverBackground);
+  background-color: color-mix(in oklab, white 6%, var(--vscode-sideBar-background));
+  color: var(--vscode-foreground);
+  border-bottom-color: var(--vscode-input-border);
 }
 
 .session-item.selected {
-  background-color: var(--vscode-list-activeSelectionBackground);
-  color: var(--vscode-list-activeSelectionForeground);
+  background-color: color-mix(in oklab, white 6%, var(--vscode-sideBar-background));
+  color: var(--vscode-foreground);
+  border-bottom-color: var(--vscode-input-border);
 }
 
 .session-item-title {
-  font-weight: 500;
-  margin-bottom: 2px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  font-weight: 550;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-bottom: 1px;
 }
 
 .session-item-time {
   font-size: 11px;
   opacity: 0.7;
+  margin-left: 8px;
+  flex-shrink: 0;
 }
 
 /* New Session Button */
@@ -634,7 +564,7 @@ body.vscode-high-contrast {
   justify-content: center;
   width: 26px;
   height: 26px;
-  padding: 0;
+  padding: 8px;
   border: 1px solid transparent;
   border-radius: 4px;
   background-color: transparent;
@@ -644,14 +574,13 @@ body.vscode-high-contrast {
   font-weight: 500;
   cursor: pointer;
   user-select: none;
-  flex-shrink: 0;
+  flex: 0;
   line-height: 1;
   opacity: 0.7;
-  transition: all 0.15s;
 }
 
 .new-session-button:hover {
-  background-color: var(--vscode-list-hoverBackground);
+  background-color: color-mix(in oklab, white 4%, var(--vscode-sideBar-background));
   opacity: 1;
 }
 

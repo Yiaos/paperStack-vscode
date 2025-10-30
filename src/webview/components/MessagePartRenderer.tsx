@@ -6,6 +6,7 @@ import { ToolCall } from "./parts/ToolCall";
 
 interface MessagePartRendererProps {
   part: MessagePart;
+  workspaceRoot?: string;
 }
 
 export function MessagePartRenderer(props: MessagePartRendererProps) {
@@ -15,7 +16,7 @@ export function MessagePartRenderer(props: MessagePartRendererProps) {
     case "reasoning":
       return <ReasoningBlock part={props.part} />;
     case "tool":
-      return <ToolCall part={props.part} />;
+      return <ToolCall part={props.part} workspaceRoot={props.workspaceRoot} />;
     case "step-start":
     case "step-finish":
       return null;

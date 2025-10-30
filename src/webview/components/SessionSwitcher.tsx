@@ -40,7 +40,6 @@ export function SessionSwitcher(props: SessionSwitcherProps) {
         disabled={props.sessions.length === 0}
       >
         <span class="session-title">{props.currentSessionTitle}</span>
-        <span class="dropdown-arrow">▼</span>
       </button>
 
       <Show when={isOpen()}>

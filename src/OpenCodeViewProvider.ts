@@ -39,7 +39,8 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
             // Webview is ready, send initialization data
             this._sendMessage({
               type: 'init',
-              ready: this._openCodeService.isReady()
+              ready: this._openCodeService.isReady(),
+              workspaceRoot: this._openCodeService.getWorkspaceRoot()
             });
             return;
           case 'getAgents':
@@ -158,13 +159,8 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
 
       this._sendMessage({ type: 'thinking', isThinking: false });
 
-      // If this was a new session, reload the session list and notify about the switch
+      // If this was a new session, just reload the session list (don't switch UI)
       if (isNewSession) {
-        this._sendMessage({
-          type: 'session-switched',
-          sessionId,
-          title: this._openCodeService.getCurrentSessionTitle()
-        });
         await this._handleLoadSessions();
       }
     } catch (error) {

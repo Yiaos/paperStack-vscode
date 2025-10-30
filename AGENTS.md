@@ -9,6 +9,7 @@ Build a VSCode sidebar extension for OpenCode that provides a UI similar to the 
 ✅ **Working Implementation**
 
 We have a functional OpenCode integration with:
+
 - Chat UI with input box and message history
 - OpenCode server running embedded in the extension
 - Session management and prompt handling
@@ -32,15 +33,18 @@ We have a functional OpenCode integration with:
 ## Architecture
 
 Extension side (TypeScript/ESM):
+
 - src/extension.ts: Entry point, initializes OpenCodeService and registers webview provider
 - src/OpenCodeService.ts: Manages OpenCode client/server lifecycle, handles sessions and prompts
 - src/OpenCodeViewProvider.ts: WebviewViewProvider implementation, message passing between UI and service
 
 Webview side (React + TypeScript):
+
 - src/webview/App.tsx: Chat UI component with input, message history, and thinking indicator
 - src/webview/App.css: Styles using VSCode CSS variables for theming
 
 Build system:
+
 - vite.config.extension.ts: Vite config for extension (CJS output, Node.js target)
 - vite.config.ts: Vite config for webview (ESM, React)
 - Both bundle to respective output directories (dist/ and out/)
@@ -48,17 +52,20 @@ Build system:
 ## OpenCode Integration Details
 
 The extension uses `@opencode-ai/sdk` which provides:
+
 - `createOpencode()`: Starts both server and client in a single call
 - Full TypeScript types for sessions, messages, config, etc.
 - HTTP/REST API communication between client and server
 - Server runs on localhost with random port
 
 Configuration flow:
+
 1. Extension reads workspace `opencode.json` if present
 2. Falls back to user's global config at `~/.config/opencode/opencode.json`
 3. Passes config to `createOpencode()` which applies it
 
 Message flow:
+
 1. User types in webview input box
 2. Webview sends message to extension via `postMessage`
 3. Extension calls `OpenCodeService.sendPrompt()`
@@ -96,11 +103,15 @@ Build for production: `npm run build`
 
 ## Debugging
 
-Extension logs: Command Palette → "Output" → Select "OpenCode" from dropdown
+Extension logs:
+
+- Output panel: Command Palette → "Output" → Select "OpenCode" from dropdown
+- Log files: the extension writes logs to this file: '/Users/tanishqkancharla/Library/Application Support/Cursor/logs/20251009T174918/window50/exthost/opencode.opencode-vscode/OpenCode.log'
 
 ## API Configuration Required
 
 For the extension to work, users need:
+
 1. OpenCode API key configured via `opencode auth login`
 2. Or API keys for their chosen provider (Anthropic, OpenAI, etc.)
 

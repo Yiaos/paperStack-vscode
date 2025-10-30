@@ -7,6 +7,7 @@ import { ThinkingIndicator } from "./ThinkingIndicator";
 interface MessageListProps {
   messages: Message[];
   isThinking: boolean;
+  workspaceRoot?: string;
 }
 
 export function MessageList(props: MessageListProps) {
@@ -32,7 +33,7 @@ export function MessageList(props: MessageListProps) {
   return (
     <div class="messages-container" ref={containerRef!}>
       <For each={props.messages}>
-        {(message) => <MessageItem message={message} />}
+        {(message) => <MessageItem message={message} workspaceRoot={props.workspaceRoot} />}
       </For>
 
       <ThinkingIndicator when={props.isThinking} />

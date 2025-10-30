@@ -19,14 +19,21 @@ function App() {
   const [sessions, setSessions] = createSignal<Session[]>([]);
   const [currentSessionId, setCurrentSessionId] = createSignal<string | null>(null);
   const [currentSessionTitle, setCurrentSessionTitle] = createSignal<string>("New Session");
+  const [workspaceRoot, setWorkspaceRoot] = createSignal<string | undefined>(undefined);
 
   const hasMessages = createMemo(() =>
     messages().some((m) => m.type === "user" || m.type === "assistant")
   );
 
+  const sessionsToShow = createMemo(() => {
+    // Don't show the current session if it's new (no ID yet)
+    return sessions().filter(s => s.id !== currentSessionId() || currentSessionId() !== null);
+  });
+
   const { send } = useVsCodeBridge({
-    onInit: (ready) => {
+    onInit: (ready, workspaceRootPath) => {
       setIsReady(ready);
+      setWorkspaceRoot(workspaceRootPath);
     },
 
     onAgentList: (agentList) => {
@@ -89,10 +96,37 @@ function App() {
       setSessions(sessionList);
     },
 
-    onSessionSwitched: (sessionId, title) => {
+    onSessionSwitched: (sessionId, title, incomingMessages) => {
       setCurrentSessionId(sessionId);
       setCurrentSessionTitle(title);
-      setMessages([]);
+      
+      // Load messages from the session
+      if (incomingMessages && incomingMessages.length > 0) {
+        const messages: Message[] = incomingMessages.map((raw: any) => {
+          const m = raw?.info ?? raw;
+          const parts = raw?.parts ?? m?.parts ?? [];
+          const text =
+            m?.text ??
+            (Array.isArray(parts)
+              ? parts
+                  .filter((p: any) => p?.type === "text" && typeof p.text === "string")
+                  .map((p: any) => p.text)
+                  .join("\n")
+              : "");
+          
+          const role = m?.role ?? "assistant";
+          
+          return {
+            id: m.id,
+            type: role === "user" ? "user" : "assistant",
+            text,
+            parts,
+          };
+        });
+        setMessages(messages);
+      } else {
+        setMessages([]);
+      }
     },
   });
 
@@ -121,13 +155,16 @@ function App() {
   };
 
   const handleNewSession = () => {
-    send({ type: "create-session" });
+    // Reset to new session state without creating a session yet
+    setCurrentSessionId(null);
+    setCurrentSessionTitle("New Session");
+    setMessages([]);
   };
 
   return (
     <div class={`app ${hasMessages() ? "app--has-messages" : ""}`}>
       <TopBar
-        sessions={sessions()}
+        sessions={sessionsToShow()}
         currentSessionId={currentSessionId()}
         currentSessionTitle={currentSessionTitle()}
         onSessionSelect={handleSessionSelect}
@@ -146,9 +183,10 @@ function App() {
         />
       </Show>
 
-      <MessageList messages={messages()} isThinking={isThinking()} />
+      <MessageList messages={messages()} isThinking={isThinking()} workspaceRoot={workspaceRoot()} />
 
       <Show when={hasMessages()}>
+        <div class="input-divider" />
         <InputBar
           value={input()}
           onInput={setInput}
