@@ -1,5 +1,5 @@
 /* @jsxImportSource solid-js */
-import { For, createEffect, createSignal, onMount, onCleanup, on } from "solid-js";
+import { For, createSignal, onMount, onCleanup, createEffect, on } from "solid-js";
 import type { Message } from "../types";
 import { MessageItem } from "./MessageItem";
 import { ThinkingIndicator } from "./ThinkingIndicator";
@@ -12,89 +12,120 @@ interface MessageListProps {
 
 export function MessageList(props: MessageListProps) {
   let containerRef!: HTMLDivElement;
-  let endRef!: HTMLDivElement;
+  let contentRef!: HTMLDivElement;
+  
+  const [pinned, setPinned] = createSignal(true);
+  let userInteracting = false;
+  let pendingRAF = false;
 
-  const [shouldAutoScroll, setShouldAutoScroll] = createSignal(true);
-
-  // Check if user is at bottom
-  const checkIfAtBottom = () => {
-    if (!containerRef) return true;
-    const threshold = 50;
-    const { scrollTop, scrollHeight, clientHeight } = containerRef;
-    return scrollHeight - scrollTop - clientHeight < threshold;
+  const scrollToBottom = () => {
+    if (!containerRef) return;
+    containerRef.scrollTop = containerRef.scrollHeight;
   };
 
-  // Scroll to bottom
-  const scrollToBottom = (smooth = false) => {
+  const scheduleAutoScroll = () => {
+    if (!pinned() || pendingRAF) return;
+    pendingRAF = true;
     requestAnimationFrame(() => {
-      endRef?.scrollIntoView({
-        behavior: smooth ? "smooth" : "auto",
-        block: "end",
-      });
+      pendingRAF = false;
+      scrollToBottom();
     });
   };
 
-  // Handle user scroll
+  const isAtBottom = () => {
+    if (!containerRef) return true;
+    const { scrollHeight, scrollTop, clientHeight } = containerRef;
+    return scrollTop + clientHeight >= scrollHeight - 2;
+  };
+
   const handleScroll = () => {
-    const atBottom = checkIfAtBottom();
-    setShouldAutoScroll(atBottom);
+    // Only react to scroll if the user is interacting
+    if (!userInteracting) return;
+    setPinned(isAtBottom());
   };
 
   onMount(() => {
-    // Initial scroll
-    scrollToBottom(false);
+    setPinned(true);
 
-    // Watch for content size changes (streaming text)
-    const resizeObserver = new ResizeObserver(() => {
-      if (shouldAutoScroll()) {
-        scrollToBottom(false);
-      }
-    });
+    const startUser = () => { userInteracting = true; };
+    const endUser = () => { userInteracting = false; };
 
-    containerRef?.addEventListener("scroll", handleScroll, { passive: true });
-    
-    if (containerRef) {
-      resizeObserver.observe(containerRef);
-    }
+    containerRef.addEventListener("scroll", handleScroll, { passive: true });
+    containerRef.addEventListener("wheel", startUser, { passive: true });
+    containerRef.addEventListener("pointerdown", startUser, { passive: true });
+    containerRef.addEventListener("touchstart", startUser, { passive: true });
+
+    window.addEventListener("pointerup", endUser, { passive: true });
+    window.addEventListener("touchend", endUser, { passive: true });
+
+    const resizeObserver = new ResizeObserver(() => scheduleAutoScroll());
+    resizeObserver.observe(contentRef);
 
     onCleanup(() => {
-      containerRef?.removeEventListener("scroll", handleScroll);
+      containerRef.removeEventListener("scroll", handleScroll);
+      containerRef.removeEventListener("wheel", startUser);
+      containerRef.removeEventListener("pointerdown", startUser);
+      containerRef.removeEventListener("touchstart", startUser);
+      window.removeEventListener("pointerup", endUser);
+      window.removeEventListener("touchend", endUser);
       resizeObserver.disconnect();
     });
   });
 
-  // Auto-scroll when messages change
+  // Handle new messages
   createEffect(
     on(
       () => props.messages.length,
       () => {
-        setShouldAutoScroll(true);
-        scrollToBottom(false);
+        setPinned(true);
+        scheduleAutoScroll();
       }
     )
   );
 
-  // Auto-scroll when thinking state changes
+  // Handle message content changes (streaming)
+  createEffect(() => {
+    const msgs = props.messages;
+    const last = msgs[msgs.length - 1];
+    
+    // Build a signature that changes when streaming updates arrive
+    const sig = !last
+      ? ""
+      : last.parts?.length
+      ? last.parts
+          .map(
+            (p) =>
+              `${p.id}:${p.type}:${p.text?.length ?? 0}:${p.state?.status ?? ""}:${
+                p.state?.output?.length ?? 0
+              }`
+          )
+          .join("|")
+      : `text:${last.text?.length ?? 0}`;
+    
+    // Access sig to create reactive dependency
+    void sig;
+    
+    // Trigger auto-scroll if pinned
+    scheduleAutoScroll();
+  });
+
+  // Handle thinking indicator appearing/disappearing
   createEffect(
     on(
       () => props.isThinking,
-      (thinking) => {
-        if (thinking && shouldAutoScroll()) {
-          scrollToBottom(false);
-        }
-      }
+      () => scheduleAutoScroll()
     )
   );
 
   return (
     <div class="messages-container" ref={containerRef!}>
-      <For each={props.messages}>
-        {(message) => <MessageItem message={message} workspaceRoot={props.workspaceRoot} />}
-      </For>
+      <div class="messages-content" ref={contentRef!}>
+        <For each={props.messages}>
+          {(message) => <MessageItem message={message} workspaceRoot={props.workspaceRoot} />}
+        </For>
 
-      <ThinkingIndicator when={props.isThinking} />
-
-      <div ref={endRef!} />
+        <ThinkingIndicator when={props.isThinking} />
+      </div>
     </div>
   );
 }
