@@ -23,13 +23,14 @@ body {
 
 /* Input Container */
 .input-container {
-  padding: 4px 8px;
+  padding: 6px;
   background-color: color-mix(in oklab, white 8%, var(--vscode-sideBar-background));
   border: 1px solid var(--vscode-input-border);
   border-radius: 4px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  gap: 4px;
   margin: 8px;
 }
 
@@ -85,19 +86,16 @@ body {
 /* Button row below input */
 .input-buttons {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
 }
 
 .app--has-messages .input-buttons {
   margin-top: 0;
-  margin-bottom: 8px;
 }
 
 .shortcut-button {
-  margin-left: auto;
   padding: 4px 8px;
   border: none;
   border-radius: 3px;
@@ -127,7 +125,7 @@ body {
 }
 
 .shortcut-button--secondary {
-  border: 1px solid var(--vscode-button-border);
+  border: none;
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   opacity: 0.8;
@@ -244,11 +242,11 @@ body {
 
 /* Tool Call Styles */
 .tool-call {
-  padding: 4px;
   border: 1px solid color-mix(in oklab,var(--vscode-input-border) 60%, var(--vscode-sideBar-background));
   border-radius: 4px;
   background-color: color-mix(in oklab, white 4%, var(--vscode-sideBar-background));
   font-size: 13px;
+  overflow: hidden;
 }
 
 .tool-call-light {
@@ -261,6 +259,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 4px;
 }
 
 .tool-text {
@@ -291,12 +290,17 @@ body {
   flex-shrink: 0;
 }
 
-.tool-output {
-  margin: 8px 0 0 0;
-  padding: 8px;
+.tool-output-container {
   background-color: var(--vscode-textCodeBlock-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
+  border-top: 1px solid color-mix(in oklab,var(--vscode-input-border) 60%, var(--vscode-sideBar-background));
+}
+
+.tool-output {
+  margin: 0;
+  padding: 8px;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
   font-family: var(--vscode-font-family);
   font-size: 12px;
   color: var(--vscode-foreground);
@@ -487,6 +491,7 @@ body.vscode-high-contrast {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-bottom: 1px;
+  font-size: 12px;
 }
 
 .dropdown-arrow {
@@ -541,7 +546,7 @@ body.vscode-high-contrast {
 
 .session-item-title {
   font-family: var(--vscode-font-family);
-  font-size: var(--vscode-font-size);
+  font-size: 12px;
   font-weight: 550;
   flex: 1;
   overflow: hidden;

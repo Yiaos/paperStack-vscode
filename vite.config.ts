@@ -8,10 +8,11 @@ export default defineConfig({
     outDir: 'out',
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'src/webview/index.html')
+        main: resolve(__dirname, 'src/webview/index.html'),
+        uikit: resolve(__dirname, 'src/webview/uikit.html')
       },
       output: {
-        entryFileNames: 'main.js',
+        entryFileNames: '[name].js',
         assetFileNames: (assetInfo) => {
           if (assetInfo.name === 'style.css') return 'main.css';
           return assetInfo.name || 'asset';

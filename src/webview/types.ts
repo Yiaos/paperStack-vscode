@@ -57,7 +57,7 @@ export interface IncomingMessage {
 }
 
 export type HostMessage =
-  | { type: "init"; ready: boolean; workspaceRoot?: string }
+  | { type: "init"; ready: boolean; workspaceRoot?: string; currentSessionId?: string | null; currentSessionTitle?: string; currentSessionMessages?: IncomingMessage[] }
   | { type: "agentList"; agents: Agent[] }
   | { type: "thinking"; isThinking: boolean }
   | { type: "part-update"; part: MessagePart & { messageID: string } }

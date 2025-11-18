@@ -18,6 +18,9 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
+    const logger = getLogger();
+    logger.info('resolveWebviewView called');
+    
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -27,7 +30,9 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       ]
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    const html = this._getHtmlForWebview(webviewView.webview);
+    logger.info('Generated webview HTML length:', html.length);
+    webviewView.webview.html = html;
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(
@@ -37,12 +42,8 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
             await this._handleSendPrompt(message.text, message.agent);
             return;
           case 'ready':
-            // Webview is ready, send initialization data
-            this._sendMessage({
-              type: 'init',
-              ready: this._openCodeService.isReady(),
-              workspaceRoot: this._openCodeService.getWorkspaceRoot()
-            });
+            // Webview is ready, send initialization data including current session state
+            await this._handleReady();
             return;
           case 'getAgents':
             await this._handleGetAgents();
@@ -59,6 +60,41 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
         }
       }
     );
+  }
+
+  private async _handleReady() {
+    try {
+      const currentSessionId = this._openCodeService.getCurrentSessionId();
+      const currentSessionTitle = this._openCodeService.getCurrentSessionTitle();
+      
+      // If there's an active session, load its messages
+      let messages: any[] | undefined;
+      if (currentSessionId) {
+        try {
+          messages = await this._openCodeService.getMessages(currentSessionId);
+        } catch (error) {
+          console.error('Error loading session messages:', error);
+          // Continue without messages rather than failing
+        }
+      }
+      
+      this._sendMessage({
+        type: 'init',
+        ready: this._openCodeService.isReady(),
+        workspaceRoot: this._openCodeService.getWorkspaceRoot(),
+        currentSessionId: currentSessionId,
+        currentSessionTitle: currentSessionTitle,
+        currentSessionMessages: messages
+      });
+    } catch (error) {
+      console.error('Error handling ready:', error);
+      // Send basic init without session state
+      this._sendMessage({
+        type: 'init',
+        ready: this._openCodeService.isReady(),
+        workspaceRoot: this._openCodeService.getWorkspaceRoot()
+      });
+    }
   }
 
   private async _handleGetAgents() {
@@ -248,7 +284,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this._extensionUri, 'out', 'main.js')
     );
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, 'out', 'main.css')
+      vscode.Uri.joinPath(this._extensionUri, 'out', 'App.css')
     );
 
     // Use a nonce for security
@@ -265,7 +301,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       </head>
       <body>
         <div id="root"></div>
-        <script nonce="${nonce}" src="${scriptUri}"></script>
+        <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
       </body>
       </html>`;
   }

@@ -31,9 +31,41 @@ function App() {
   });
 
   const { send } = useVsCodeBridge({
-    onInit: (ready, workspaceRootPath) => {
+    onInit: (ready, workspaceRootPath, sessionId, sessionTitle, incomingMessages) => {
       setIsReady(ready);
       setWorkspaceRoot(workspaceRootPath);
+      
+      // Restore active session state from backend if it exists
+      if (sessionId) {
+        setCurrentSessionId(sessionId);
+        setCurrentSessionTitle(sessionTitle || "New Session");
+        
+        // Load messages from the active session
+        if (incomingMessages && incomingMessages.length > 0) {
+          const messages: Message[] = incomingMessages.map((raw: any) => {
+            const m = raw?.info ?? raw;
+            const parts = raw?.parts ?? m?.parts ?? [];
+            const text =
+              m?.text ??
+              (Array.isArray(parts)
+                ? parts
+                    .filter((p: any) => p?.type === "text" && typeof p.text === "string")
+                    .map((p: any) => p.text)
+                    .join("\n")
+                : "");
+            
+            const role = m?.role ?? "assistant";
+            
+            return {
+              id: m.id,
+              type: role === "user" ? "user" : "assistant",
+              text,
+              parts,
+            };
+          });
+          setMessages(messages);
+        }
+      }
     },
 
     onAgentList: (agentList) => {
@@ -155,10 +187,8 @@ function App() {
   };
 
   const handleNewSession = () => {
-    // Reset to new session state without creating a session yet
-    setCurrentSessionId(null);
-    setCurrentSessionTitle("New Session");
-    setMessages([]);
+    send({ type: "create-session" });
+    // The session-switched event handler will update the UI state
   };
 
   return (

@@ -47,6 +47,7 @@
     "watch:webview": "vite build --config vite.config.ts --watch --mode development",
     "clean": "rm -rf dist out",
     "dev": "vite",
+    "uikit": "vite --open /src/webview/uikit.html",
     "test": "vitest",
     "package": "vsce package",
     "publish": "vsce publish"

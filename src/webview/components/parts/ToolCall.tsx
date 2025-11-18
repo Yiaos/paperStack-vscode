@@ -557,7 +557,9 @@ export function ToolCall(props: ToolCallProps) {
             {hasOutput && <ChevronDownIcon isOpen={isOpen()} />}
           </div>
           <Show when={hasOutput && isOpen()}>
-            <pre class="tool-output">{state.error || state.output}</pre>
+            <div class="tool-output-container">
+              <pre class="tool-output">{state.error || state.output}</pre>
+            </div>
           </Show>
         </div>
       </Match>
