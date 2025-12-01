@@ -57,6 +57,9 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
           case 'create-session':
             await this._handleCreateSession(message.title);
             return;
+          case 'permission-response':
+            await this._handlePermissionResponse(message.sessionId, message.permissionId, message.response);
+            return;
         }
       }
     );
@@ -173,6 +176,20 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private async _handlePermissionResponse(sessionId: string, permissionId: string, response: "once" | "always" | "reject") {
+    try {
+      console.log('[ViewProvider] Handling permission response:', { sessionId, permissionId, response });
+      await this._openCodeService.respondToPermission(sessionId, permissionId, response);
+      console.log('[ViewProvider] Permission response sent successfully');
+    } catch (error) {
+      console.error('[ViewProvider] Error responding to permission:', error);
+      this._sendMessage({
+        type: 'error',
+        message: `Failed to respond to permission: ${(error as Error).message}`
+      });
+    }
+  }
+
   private async _handleSendPrompt(text: string, agent?: string) {
     try {
       // Send thinking state
@@ -254,6 +271,28 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
         message: event.properties.info,
         sessionId: evSessionId
       });
+    } else if (event.type === 'permission.updated') {
+      console.log('[ViewProvider] Permission required:', {
+        permissionId: event.properties.id,
+        type: event.properties.type,
+        sessionID: event.properties.sessionID,
+        callID: event.properties.callID,
+        messageID: event.properties.messageID
+      });
+      
+      // Forward permission request to webview
+      console.log('[ViewProvider] Sending permission-required message to webview');
+      this._sendMessage({
+        type: 'permission-required',
+        permission: event.properties
+      });
+      console.log('[ViewProvider] Permission message sent');
+    } else if (event.type === 'permission.replied') {
+      console.log('[ViewProvider] Permission replied:', {
+        permissionId: event.properties.permissionID,
+        response: event.properties.response
+      });
+      // Just log it - the UI will update via part-update events
     } else if (event.type === 'session.idle') {
       // Session finished processing
       console.log('[ViewProvider] Session idle - streaming complete');

@@ -1,6 +1,6 @@
 /* @jsxImportSource solid-js */
 import { For, createSignal, onMount, onCleanup, createEffect, on } from "solid-js";
-import type { Message } from "../types";
+import type { Message, Permission } from "../types";
 import { MessageItem } from "./MessageItem";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 
@@ -8,6 +8,8 @@ interface MessageListProps {
   messages: Message[];
   isThinking: boolean;
   workspaceRoot?: string;
+  pendingPermissions?: Map<string, Permission>;
+  onPermissionResponse?: (permissionId: string, response: "once" | "always" | "reject") => void;
 }
 
 export function MessageList(props: MessageListProps) {
@@ -121,7 +123,7 @@ export function MessageList(props: MessageListProps) {
     <div class="messages-container" ref={containerRef!}>
       <div class="messages-content" ref={contentRef!}>
         <For each={props.messages}>
-          {(message) => <MessageItem message={message} workspaceRoot={props.workspaceRoot} />}
+          {(message) => <MessageItem message={message} workspaceRoot={props.workspaceRoot} pendingPermissions={props.pendingPermissions} onPermissionResponse={props.onPermissionResponse} />}
         </For>
 
         <ThinkingIndicator when={props.isThinking} />

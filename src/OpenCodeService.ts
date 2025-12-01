@@ -402,6 +402,31 @@ export class OpenCodeService {
     return (result.data || []) as Array<{ info: unknown; parts: unknown[] }>;
   }
 
+  async respondToPermission(
+    sessionId: string,
+    permissionId: string,
+    response: "once" | "always" | "reject"
+  ): Promise<void> {
+    if (!this.opencode) {
+      throw new Error("OpenCode not initialized");
+    }
+
+    debugLog('[respondToPermission]', { sessionId, permissionId, response });
+
+    const result = await this.opencode.client.postSessionIdPermissionsPermissionId({
+      path: { id: sessionId, permissionID: permissionId },
+      body: { response },
+    });
+
+    if (result.error) {
+      throw new Error(
+        `Failed to respond to permission: ${JSON.stringify(result.error)}`
+      );
+    }
+
+    debugLog('[respondToPermission] Success');
+  }
+
   async dispose(): Promise<void> {
     if (this.opencode) {
       this.opencode.server.close();

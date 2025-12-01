@@ -1,11 +1,13 @@
 /* @jsxImportSource solid-js */
 import { For, Show } from "solid-js";
-import type { Message } from "../types";
+import type { Message, Permission } from "../types";
 import { MessagePartRenderer } from "./MessagePartRenderer";
 
 interface MessageItemProps {
   message: Message;
   workspaceRoot?: string;
+  pendingPermissions?: Map<string, Permission>;
+  onPermissionResponse?: (permissionId: string, response: "once" | "always" | "reject") => void;
 }
 
 export function MessageItem(props: MessageItemProps) {
@@ -14,7 +16,7 @@ export function MessageItem(props: MessageItemProps) {
       <div class="message-content">
         <Show when={props.message.parts} fallback={props.message.text}>
           <For each={props.message.parts}>
-            {(part) => <MessagePartRenderer part={part} workspaceRoot={props.workspaceRoot} />}
+            {(part) => <MessagePartRenderer part={part} workspaceRoot={props.workspaceRoot} pendingPermissions={props.pendingPermissions} onPermissionResponse={props.onPermissionResponse} />}
           </For>
         </Show>
       </div>

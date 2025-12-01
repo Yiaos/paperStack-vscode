@@ -5,7 +5,7 @@ import { MessageList } from "./components/MessageList";
 import { TopBar } from "./components/TopBar";
 import { useVsCodeBridge } from "./hooks/useVsCodeBridge";
 import { applyPartUpdate, applyMessageUpdate } from "./utils/messageUtils";
-import type { Message, Agent, Session } from "./types";
+import type { Message, Agent, Session, Permission } from "./types";
 
 const DEBUG = false;
 
@@ -20,6 +20,10 @@ function App() {
   const [currentSessionId, setCurrentSessionId] = createSignal<string | null>(null);
   const [currentSessionTitle, setCurrentSessionTitle] = createSignal<string>("New Session");
   const [workspaceRoot, setWorkspaceRoot] = createSignal<string | undefined>(undefined);
+  
+  // Pending permissions are tracked separately from tool parts
+  // Key is either callID (preferred) or permissionID as fallback
+  const [pendingPermissions, setPendingPermissions] = createSignal<Map<string, Permission>>(new Map());
 
   const hasMessages = createMemo(() =>
     messages().some((m) => m.type === "user" || m.type === "assistant")
@@ -85,8 +89,10 @@ function App() {
           partId: part.id,
           partType: part.type,
           messageID: part.messageID,
+          callID: part.callID,
         });
       }
+      console.log('[App] Part update:', JSON.stringify(part, null, 2));
       setMessages((prev) => applyPartUpdate(prev, part));
     },
 
@@ -160,6 +166,20 @@ function App() {
         setMessages([]);
       }
     },
+
+    onPermissionRequired: (permission: Permission) => {
+      console.log('[App] Permission required:', permission);
+      
+      // Store permission in the pending permissions map
+      // Key by callID if available, otherwise by permission ID
+      const key = permission.callID || permission.id;
+      setPendingPermissions((prev) => {
+        const next = new Map(prev);
+        next.set(key, permission);
+        console.log('[App] Added pending permission:', key, 'total:', next.size);
+        return next;
+      });
+    },
   });
 
   onMount(() => {
@@ -191,6 +211,60 @@ function App() {
     // The session-switched event handler will update the UI state
   };
 
+  const handlePermissionResponse = (permissionId: string, response: "once" | "always" | "reject") => {
+    console.log(`[App] Permission response clicked: ${response} for ${permissionId}`);
+    
+    // Find the permission in pendingPermissions
+    const perms = pendingPermissions();
+    let permission: Permission | undefined;
+    
+    // Search by permission ID
+    for (const [key, perm] of perms.entries()) {
+      if (perm.id === permissionId) {
+        permission = perm;
+        break;
+      }
+    }
+    
+    const sessionId = permission?.sessionID || currentSessionId();
+    
+    if (!sessionId) {
+      console.error('[App] Cannot respond to permission: no session ID found');
+      return;
+    }
+    
+    // Send permission response to extension
+    console.log('[App] Sending permission-response message to extension:', {
+      type: "permission-response",
+      sessionId,
+      permissionId,
+      response
+    });
+    
+    send({
+      type: "permission-response",
+      sessionId,
+      permissionId,
+      response
+    });
+    
+    // Remove the permission from pending permissions
+    setPendingPermissions((prev) => {
+      const next = new Map(prev);
+      // Remove by finding the key that has this permission ID
+      for (const [key, perm] of next.entries()) {
+        if (perm.id === permissionId) {
+          next.delete(key);
+          break;
+        }
+      }
+      console.log('[App] Removed pending permission:', permissionId, 'remaining:', next.size);
+      return next;
+    });
+    
+    console.log('[App] Permission response sent');
+  };
+
   return (
     <div class={`app ${hasMessages() ? "app--has-messages" : ""}`}>
       <TopBar
@@ -213,7 +287,7 @@ function App() {
         />
       </Show>
 
-      <MessageList messages={messages()} isThinking={isThinking()} workspaceRoot={workspaceRoot()} />
+      <MessageList messages={messages()} isThinking={isThinking()} workspaceRoot={workspaceRoot()} pendingPermissions={pendingPermissions()} onPermissionResponse={handlePermissionResponse} />
 
       <Show when={hasMessages()}>
         <div class="input-divider" />

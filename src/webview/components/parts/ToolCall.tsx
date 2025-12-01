@@ -1,6 +1,6 @@
 /* @jsxImportSource solid-js */
-import { Match, Show, Switch, createSignal } from "solid-js";
-import type { ToolState as BaseToolState, MessagePart } from "../../types";
+import { Match, Show, Switch, createEffect, createSignal, createMemo } from "solid-js";
+import type { ToolState as BaseToolState, MessagePart, Permission } from "../../types";
 
 type ToolName =
   | "read"
@@ -234,6 +234,7 @@ const ChevronDownIcon = (props: { isOpen: boolean }) => (
     style={{
       transform: props.isOpen ? "rotate(180deg)" : "rotate(0deg)",
       transition: "transform 0.2s ease",
+      "flex-shrink": "0",
     }}
   >
     <path
@@ -246,9 +247,32 @@ const ChevronDownIcon = (props: { isOpen: boolean }) => (
   </svg>
 );
 
+const EnterIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    style={{ "margin-left": "4px" }}
+  >
+    <path
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="1.5"
+      d="M19 7V13.25C19 13.8023 18.5523 14.25 18 14.25H7M7 14.25L10.25 11M7 14.25L10.25 17.25"
+    ></path>
+  </svg>
+);
+
 interface ToolCallProps {
   part: MessagePart;
   workspaceRoot?: string;
+  pendingPermissions?: Map<string, Permission>;
+  onPermissionResponse?: (
+    permissionId: string,
+    response: "once" | "always" | "reject"
+  ) => void;
 }
 
 interface ToolDisplayInfo {
@@ -261,37 +285,46 @@ interface ToolDisplayInfo {
   fileName?: string; // File name part
 }
 
-function toRelativePath(absolutePath: string | undefined, workspaceRoot?: string): string | undefined {
+function toRelativePath(
+  absolutePath: string | undefined,
+  workspaceRoot?: string
+): string | undefined {
   if (!absolutePath || !workspaceRoot) return absolutePath;
-  
+
   // Ensure paths have consistent separators
-  const normalizedAbsolute = absolutePath.replace(/\\/g, '/');
-  const normalizedRoot = workspaceRoot.replace(/\\/g, '/');
-  
+  const normalizedAbsolute = absolutePath.replace(/\\/g, "/");
+  const normalizedRoot = workspaceRoot.replace(/\\/g, "/");
+
   // Check if the path starts with the workspace root
   if (normalizedAbsolute.startsWith(normalizedRoot)) {
     let relativePath = normalizedAbsolute.slice(normalizedRoot.length);
     // Remove leading slash if present
-    if (relativePath.startsWith('/')) {
+    if (relativePath.startsWith("/")) {
       relativePath = relativePath.slice(1);
     }
-    return relativePath || '.';
+    return relativePath || ".";
   }
-  
+
   return absolutePath;
 }
 
-function splitFilePath(filePath: string): { dirPath: string; fileName: string } {
-  const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-  
+function splitFilePath(filePath: string): {
+  dirPath: string;
+  fileName: string;
+} {
+  const lastSlash = Math.max(
+    filePath.lastIndexOf("/"),
+    filePath.lastIndexOf("\\")
+  );
+
   if (lastSlash === -1) {
     // No directory, just filename
-    return { dirPath: '', fileName: filePath };
+    return { dirPath: "", fileName: filePath };
   }
-  
+
   return {
     dirPath: filePath.substring(0, lastSlash + 1), // Include trailing slash
-    fileName: filePath.substring(lastSlash + 1)
+    fileName: filePath.substring(lastSlash + 1),
   };
 }
 
@@ -398,10 +431,10 @@ function getToolDisplayInfo(
       return {
         icon: TerminalIcon,
         text:
-          (inputs as BashInput).description ||
           (inputs as BashInput).command ||
+          (inputs as BashInput).description ||
           "Run command",
-        monospace: false,
+        monospace: true,
       };
     // Todo tools (lighter weight)
     case "todowrite":
@@ -518,9 +551,69 @@ export function ToolCall(props: ToolCallProps) {
   if (!state) return null;
 
   const [isOpen, setIsOpen] = createSignal(false);
+  const [toolCallRef, setToolCallRef] = createSignal<HTMLDivElement | null>(
+    null
+  );
   const displayInfo = getToolDisplayInfo(tool, state, props.workspaceRoot);
   const Icon = displayInfo.icon;
   const hasOutput = !!(state.output || state.error);
+  
+  // Look up permission from pendingPermissions map using callID
+  const permission = createMemo(() => {
+    const perms = props.pendingPermissions;
+    if (!perms) return undefined;
+    const callID = props.part.callID;
+    if (callID && perms.has(callID)) {
+      return perms.get(callID);
+    }
+    // Also check by part ID as fallback
+    if (perms.has(props.part.id)) {
+      return perms.get(props.part.id);
+    }
+    return undefined;
+  });
+  
+  const needsPermission = createMemo(() => !!permission());
+
+  console.log("[ToolCall] Rendering:", {
+    partId: props.part.id,
+    callID: props.part.callID,
+    tool,
+    hasPermission: !!permission(),
+    needsPermission: needsPermission(),
+  });
+
+  // Auto-focus the tool call container when permission prompt appears
+  createEffect(() => {
+    if (needsPermission()) {
+      const container = toolCallRef();
+      if (container) {
+        container.focus();
+      }
+    }
+  });
+
+  const handlePermissionResponse = (response: "once" | "always" | "reject") => {
+    const perm = permission();
+    console.log(
+      "[ToolCall] Permission response button clicked:",
+      response,
+      "for",
+      perm?.id
+    );
+    console.log(
+      "[ToolCall] onPermissionResponse prop exists?",
+      !!props.onPermissionResponse
+    );
+    if (perm?.id && props.onPermissionResponse) {
+      console.log("[ToolCall] Calling onPermissionResponse");
+      props.onPermissionResponse(perm.id, response);
+    } else {
+      console.error(
+        "[ToolCall] Cannot respond - missing permission ID or handler"
+      );
+    }
+  };
 
   return (
     <Switch>
@@ -532,23 +625,43 @@ export function ToolCall(props: ToolCallProps) {
         </div>
       </Match>
       <Match when={!displayInfo.isLight}>
-        <div class="tool-call">
+        <div
+          ref={setToolCallRef}
+          class="tool-call"
+          classList={{ "tool-call--needs-permission": needsPermission() }}
+          tabIndex={needsPermission() ? 0 : undefined}
+          onKeyDown={(e) => {
+            if (needsPermission() && e.key === "Enter") {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log(
+                "[ToolCall] Enter key pressed in tool call container"
+              );
+              handlePermissionResponse("once");
+            }
+          }}
+        >
           <div
             class="tool-header"
             onClick={() => hasOutput && setIsOpen(!isOpen())}
             style={{ cursor: hasOutput ? "pointer" : "default" }}
           >
             {Icon && <Icon />}
-            <Show when={displayInfo.isFilePath} fallback={
-              <span
-                class="tool-text"
-                style={{
-                  "font-family": displayInfo.monospace ? "monospace" : "inherit",
-                }}
-              >
-                {displayInfo.text}
-              </span>
-            }>
+            <Show
+              when={displayInfo.isFilePath}
+              fallback={
+                <span
+                  class="tool-text"
+                  style={{
+                    "font-family": displayInfo.monospace
+                      ? "monospace"
+                      : "inherit",
+                  }}
+                >
+                  {displayInfo.text}
+                </span>
+              }
+            >
               <span class="tool-text tool-file-path">
                 <span class="tool-file-dir">{displayInfo.dirPath}</span>
                 <span class="tool-file-name">{displayInfo.fileName}</span>
@@ -556,6 +669,42 @@ export function ToolCall(props: ToolCallProps) {
             </Show>
             {hasOutput && <ChevronDownIcon isOpen={isOpen()} />}
           </div>
+          <Show when={needsPermission()}>
+            <div class="tool-permission-buttons">
+              <button
+                class="permission-button permission-button--quiet"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log("[ToolCall] Reject button clicked");
+                  handlePermissionResponse("reject");
+                }}
+              >
+                reject
+              </button>
+              <div class="permission-spacer" />
+              <button
+                class="permission-button permission-button--quiet"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log("[ToolCall] Always button clicked");
+                  handlePermissionResponse("always");
+                }}
+              >
+                always
+              </button>
+              <button
+                class="permission-button permission-button--primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log("[ToolCall] Once button clicked");
+                  handlePermissionResponse("once");
+                }}
+              >
+                once
+                <EnterIcon />
+              </button>
+            </div>
+          </Show>
           <Show when={hasOutput && isOpen()}>
             <div class="tool-output-container">
               <pre class="tool-output">{state.error || state.output}</pre>

@@ -247,6 +247,18 @@ body {
   background-color: color-mix(in oklab, white 4%, var(--vscode-sideBar-background));
   font-size: 13px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-call--needs-permission {
+  border: 2px solid #ffa500;
+  outline: none;
+}
+
+.tool-call--needs-permission:focus {
+  border: 2px solid #ffa500;
+  outline: none;
 }
 
 .tool-call-light {
@@ -326,6 +338,65 @@ body {
   color: var(--vscode-errorForeground);
   background-color: var(--vscode-inputValidation-errorBackground);
   border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+/* Tool Permission Buttons */
+.tool-permission-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-top: 1px solid color-mix(in oklab,var(--vscode-input-border) 60%, var(--vscode-sideBar-background));
+}
+
+.permission-spacer {
+  flex: 1;
+}
+
+.permission-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  font-family: var(--vscode-font-family);
+  font-size: 11px;
+  cursor: default;
+  line-height: 1;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.permission-button--quiet {
+  background-color: transparent;
+  color: var(--vscode-foreground);
+  opacity: 0.6;
+}
+
+.permission-button--quiet:hover {
+  opacity: 1;
+  background-color: color-mix(in oklab, white 6%, var(--vscode-sideBar-background));
+}
+
+.permission-button--quiet:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.permission-button--primary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  opacity: 0.8;
+}
+
+.permission-button--primary:hover {
+  opacity: 1;
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.permission-button--primary:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
 }
 
 /* Reasoning Block */

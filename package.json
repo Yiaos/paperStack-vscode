@@ -50,7 +50,7 @@
     "uikit": "vite --open /src/webview/uikit.html",
     "test": "vitest",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish && source .env && npx ovsx publish -p $OPEN_VSX_KEY"
   },
   "devDependencies": {
     "@types/node": "^20.x",

@@ -6,6 +6,7 @@ export interface MessagePart {
   state?: ToolState;
   snapshot?: string;
   messageID?: string;
+  callID?: string;
 }
 
 export interface ToolState {
@@ -56,6 +57,20 @@ export interface IncomingMessage {
   parts?: MessagePart[];
 }
 
+export interface Permission {
+  id: string;
+  type: string;
+  pattern?: string | string[];
+  sessionID: string;
+  messageID: string;
+  callID?: string;
+  title: string;
+  metadata: Record<string, unknown>;
+  time: {
+    created: number;
+  };
+}
+
 export type HostMessage =
   | { type: "init"; ready: boolean; workspaceRoot?: string; currentSessionId?: string | null; currentSessionTitle?: string; currentSessionMessages?: IncomingMessage[] }
   | { type: "agentList"; agents: Agent[] }
@@ -65,7 +80,8 @@ export type HostMessage =
   | { type: "response"; text?: string; parts?: MessagePart[] }
   | { type: "error"; message: string }
   | { type: "session-list"; sessions: Session[] }
-  | { type: "session-switched"; sessionId: string; title: string; messages?: IncomingMessage[] };
+  | { type: "session-switched"; sessionId: string; title: string; messages?: IncomingMessage[] }
+  | { type: "permission-required"; permission: Permission };
 
 export type WebviewMessage =
   | { type: "ready" }
@@ -73,4 +89,5 @@ export type WebviewMessage =
   | { type: "sendPrompt"; text: string; agent: string | null }
   | { type: "load-sessions" }
   | { type: "switch-session"; sessionId: string }
-  | { type: "create-session"; title?: string };
+  | { type: "create-session"; title?: string }
+  | { type: "permission-response"; sessionId: string; permissionId: string; response: "once" | "always" | "reject" };

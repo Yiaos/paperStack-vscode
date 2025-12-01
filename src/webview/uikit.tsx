@@ -4,7 +4,7 @@ import { createSignal } from "solid-js";
 import { InputBar } from "./components/InputBar";
 import { MessageList } from "./components/MessageList";
 import { TopBar } from "./components/TopBar";
-import type { Message, Agent, Session } from "./types";
+import type { Message, Agent, Session, Permission } from "./types";
 import "./uikit.css"; // VSCode theme variable fallbacks for browser
 import "./App.css";
 
@@ -81,13 +81,13 @@ const fakeMessages: Message[] = [
         type: "tool",
         tool: "bash",
         messageID: "msg-2",
+        callID: "call-1",
         state: {
           input: {
             command: "npm test auth",
             description: "Run authentication tests",
           },
-          status: "completed",
-          output: "✓ All tests passed\n3 passing (45ms)",
+          status: "pending",
         },
       },
     ],
@@ -160,6 +160,22 @@ function UIKit() {
   );
   const [currentSessionTitle, setCurrentSessionTitle] =
     createSignal<string>("Fix authentication bug");
+  
+  // Pending permissions tracked separately from tool parts
+  const [pendingPermissions, setPendingPermissions] = createSignal<Map<string, Permission>>(
+    new Map([
+      ["call-1", {
+        id: "perm-1",
+        type: "bash",
+        sessionID: "session-1",
+        messageID: "msg-2",
+        callID: "call-1",
+        title: "Run bash command: npm test auth",
+        metadata: {},
+        time: { created: Date.now() },
+      }],
+    ])
+  );
 
   const hasMessages = () => messages().length > 0;
 
@@ -214,6 +230,21 @@ function UIKit() {
     setCurrentSessionId(null);
     setCurrentSessionTitle("New Session");
     setMessages([]);
+  };
+
+  const handlePermissionResponse = (permissionId: string, response: "once" | "always" | "reject") => {
+    console.log(`[UIKit] Permission response: ${response} for ${permissionId}`);
+    // Remove the permission from pending permissions
+    setPendingPermissions((prev) => {
+      const next = new Map(prev);
+      for (const [key, perm] of next.entries()) {
+        if (perm.id === permissionId) {
+          next.delete(key);
+          break;
+        }
+      }
+      return next;
+    });
   };
 
   // Control panel for testing states
@@ -308,6 +339,8 @@ function UIKit() {
           messages={messages()}
           isThinking={isThinking()}
           workspaceRoot="/Users/developer/project"
+          pendingPermissions={pendingPermissions()}
+          onPermissionResponse={handlePermissionResponse}
         />
 
         {hasMessages() && (

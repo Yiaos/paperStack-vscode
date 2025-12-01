@@ -25,6 +25,8 @@ export function applyPartUpdate(
   if (partIndex === -1) {
     msg.parts = [...parts, part];
   } else {
+    // Replace the part entirely with the incoming update
+    // Permission state is managed separately via permission.updated events
     msg.parts = [...parts];
     msg.parts[partIndex] = part;
   }
