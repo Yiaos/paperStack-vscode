@@ -2,6 +2,8 @@
 
 A VSCode sidebar extension for OpenCode - the AI coding agent. Simple chat interface to interact with OpenCode directly from your sidebar.
 
+![OpenCode VSCode Extension Preview](media/preview.png)
+
 ## Prerequisites
 
 1. **OpenCode CLI must be installed**:

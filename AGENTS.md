@@ -101,6 +101,20 @@ Message flow:
 
 Build for production: `npm run build`
 
+## Publishing
+
+To publish a new version, always use:
+
+```bash
+npm run publish
+```
+
+This publishes to both VS Code Marketplace and Open VSX. Requires:
+- VS Code Marketplace PAT (login with `npx vsce login TanishqKancharla`)
+- Open VSX key in `.env` as `OPEN_VSX_KEY`
+
+Azure DevOps for PAT management: https://dev.azure.com/tanishqk/
+
 ## Debugging
 
 Extension logs:
