@@ -252,12 +252,12 @@ body {
 }
 
 .tool-call--needs-permission {
-  border: 2px solid #ffa500;
+  border: 1px solid #ffa500;
   outline: none;
 }
 
 .tool-call--needs-permission:focus {
-  border: 2px solid #ffa500;
+  border: 1px solid #ffa500;
   outline: none;
 }
 
