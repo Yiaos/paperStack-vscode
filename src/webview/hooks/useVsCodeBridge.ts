@@ -1,5 +1,5 @@
 import { onMount, onCleanup } from "solid-js";
-import type { MessagePart, Agent, IncomingMessage, WebviewMessage, Session, Permission } from "../types";
+import type { MessagePart, Agent, IncomingMessage, WebviewMessage, Session, Permission, ContextInfo } from "../types";
 
 declare const acquireVsCodeApi: any;
 const vscode = acquireVsCodeApi();
@@ -15,6 +15,7 @@ export interface VsCodeBridgeCallbacks {
   onSessionList: (sessions: Session[]) => void;
   onSessionSwitched: (sessionId: string, title: string, messages?: IncomingMessage[]) => void;
   onPermissionRequired: (permission: Permission) => void;
+  onContextUpdate: (contextInfo: ContextInfo) => void;
 }
 
 export function useVsCodeBridge(callbacks: VsCodeBridgeCallbacks) {
@@ -69,6 +70,10 @@ export function useVsCodeBridge(callbacks: VsCodeBridgeCallbacks) {
         case "permission-required":
           console.log('[Bridge] Received permission-required message:', message.permission);
           callbacks.onPermissionRequired(message.permission);
+          break;
+
+        case "context-update":
+          callbacks.onContextUpdate(message.contextInfo);
           break;
       }
     };

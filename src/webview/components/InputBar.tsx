@@ -46,8 +46,21 @@ export function InputBar(props: InputBarProps) {
     }
   };
 
+  const handleContainerClick = (e: MouseEvent) => {
+    // Focus the textarea when clicking anywhere in the container
+    // except on interactive elements (buttons)
+    const target = e.target as HTMLElement;
+    if (
+      !target.closest("button") &&
+      !target.closest(".agent-switcher-button") &&
+      inputRef
+    ) {
+      inputRef.focus();
+    }
+  };
+
   return (
-    <form class="input-container" onSubmit={handleSubmit}>
+    <form class="input-container" onSubmit={handleSubmit} onClick={handleContainerClick}>
       <textarea
         ref={inputRef!}
         class="prompt-input"

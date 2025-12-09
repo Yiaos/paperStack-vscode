@@ -3,9 +3,10 @@ import { createSignal, createMemo, Show, onMount } from "solid-js";
 import { InputBar } from "./components/InputBar";
 import { MessageList } from "./components/MessageList";
 import { TopBar } from "./components/TopBar";
+import { ContextIndicator } from "./components/ContextIndicator";
 import { useVsCodeBridge } from "./hooks/useVsCodeBridge";
 import { applyPartUpdate, applyMessageUpdate } from "./utils/messageUtils";
-import type { Message, Agent, Session, Permission } from "./types";
+import type { Message, Agent, Session, Permission, ContextInfo } from "./types";
 
 const DEBUG = false;
 
@@ -20,6 +21,7 @@ function App() {
   const [currentSessionId, setCurrentSessionId] = createSignal<string | null>(null);
   const [currentSessionTitle, setCurrentSessionTitle] = createSignal<string>("New Session");
   const [workspaceRoot, setWorkspaceRoot] = createSignal<string | undefined>(undefined);
+  const [contextInfo, setContextInfo] = createSignal<ContextInfo | null>(null);
   
   // Pending permissions are tracked separately from tool parts
   // Key is either callID (preferred) or permissionID as fallback
@@ -180,6 +182,10 @@ function App() {
         return next;
       });
     },
+
+    onContextUpdate: (context: ContextInfo) => {
+      setContextInfo(context);
+    },
   });
 
   onMount(() => {
@@ -291,6 +297,7 @@ function App() {
 
       <Show when={hasMessages()}>
         <div class="input-divider" />
+        <ContextIndicator contextInfo={contextInfo()} />
         <InputBar
           value={input()}
           onInput={setInput}

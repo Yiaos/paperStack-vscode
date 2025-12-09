@@ -7,6 +7,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'opencode.chatView';
   private _view?: vscode.WebviewView;
   private _activeSessionId?: string;
+  private _currentModelContextLimit: number = 200000; // Default context limit
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -271,6 +272,12 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
         message: event.properties.info,
         sessionId: evSessionId
       });
+
+      // Update context info if this is an assistant message
+      const info: any = event.properties.info;
+      if (info.role === 'assistant' && info.tokens) {
+        this._updateContextInfo(info.tokens, info.modelID, info.providerID);
+      }
     } else if (event.type === 'permission.updated') {
       console.log('[ViewProvider] Permission required:', {
         permissionId: event.properties.id,
@@ -309,6 +316,32 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
         .join('\n');
     }
     return 'No response received';
+  }
+
+  private async _updateContextInfo(tokens: any, modelID: string, providerID: string) {
+    try {
+      // Get the model's context limit from the SDK
+      const configResult = await this._openCodeService.getConfig();
+      const contextLimit = configResult?.providers?.[providerID]?.models?.[modelID]?.limit?.context;
+      if (contextLimit) {
+        this._currentModelContextLimit = contextLimit;
+      }
+
+      // Calculate total tokens used (input + output + cache read)
+      const usedTokens = (tokens.input || 0) + (tokens.output || 0) + (tokens.cache?.read || 0);
+      const percentage = Math.min(100, (usedTokens / this._currentModelContextLimit) * 100);
+
+      this._sendMessage({
+        type: 'context-update',
+        contextInfo: {
+          usedTokens,
+          limitTokens: this._currentModelContextLimit,
+          percentage
+        }
+      });
+    } catch (error) {
+      console.error('[ViewProvider] Error updating context info:', error);
+    }
   }
 
   private _sendMessage(message: Record<string, unknown>) {

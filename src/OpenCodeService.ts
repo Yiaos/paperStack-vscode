@@ -402,6 +402,20 @@ export class OpenCodeService {
     return (result.data || []) as Array<{ info: unknown; parts: unknown[] }>;
   }
 
+  async getConfig(): Promise<any> {
+    if (!this.opencode) {
+      throw new Error("OpenCode not initialized");
+    }
+
+    const result = await this.opencode.client.config.providers();
+
+    if (result.error) {
+      throw new Error(`Failed to get config: ${JSON.stringify(result.error)}`);
+    }
+
+    return result.data;
+  }
+
   async respondToPermission(
     sessionId: string,
     permissionId: string,

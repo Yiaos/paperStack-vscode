@@ -32,14 +32,11 @@ body {
   flex-direction: column;
   gap: 4px;
   margin: 8px;
+  cursor: text;
 }
 
 .input-container:focus-within {
-  border-color: var(--vscode-focusBorder);
-}
-
-.app--has-messages .input-container {
-  flex-direction: column-reverse;
+  border-color: color-mix(in oklab, var(--vscode-foreground) 30%, var(--vscode-input-border));
 }
 
 .input-divider {
@@ -89,10 +86,6 @@ body {
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-}
-
-.app--has-messages .input-buttons {
-  margin-top: 0;
 }
 
 .shortcut-button {
@@ -663,4 +656,38 @@ body.vscode-high-contrast {
 .new-session-button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+
+/* Context Indicator */
+.context-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 8px 0 8px;
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+
+.context-indicator__ring {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+.context-indicator__ring-bg {
+}
+
+.context-indicator__ring-progress {
+  transition: stroke-dashoffset 0.3s ease-in-out, stroke 0.3s ease-in-out;
+}
+
+.context-indicator__text {
+  font-family: var(--vscode-font-family);
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 500;
+  user-select: none;
+  line-height: 12px;
 }

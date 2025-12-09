@@ -71,6 +71,12 @@ export interface Permission {
   };
 }
 
+export interface ContextInfo {
+  usedTokens: number;
+  limitTokens: number;
+  percentage: number;
+}
+
 export type HostMessage =
   | { type: "init"; ready: boolean; workspaceRoot?: string; currentSessionId?: string | null; currentSessionTitle?: string; currentSessionMessages?: IncomingMessage[] }
   | { type: "agentList"; agents: Agent[] }
@@ -81,7 +87,8 @@ export type HostMessage =
   | { type: "error"; message: string }
   | { type: "session-list"; sessions: Session[] }
   | { type: "session-switched"; sessionId: string; title: string; messages?: IncomingMessage[] }
-  | { type: "permission-required"; permission: Permission };
+  | { type: "permission-required"; permission: Permission }
+  | { type: "context-update"; contextInfo: ContextInfo };
 
 export type WebviewMessage =
   | { type: "ready" }

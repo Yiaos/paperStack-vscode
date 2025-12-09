@@ -4,7 +4,8 @@ import { createSignal } from "solid-js";
 import { InputBar } from "./components/InputBar";
 import { MessageList } from "./components/MessageList";
 import { TopBar } from "./components/TopBar";
-import type { Message, Agent, Session, Permission } from "./types";
+import { ContextIndicator } from "./components/ContextIndicator";
+import type { Message, Agent, Session, Permission, ContextInfo } from "./types";
 import "./uikit.css"; // VSCode theme variable fallbacks for browser
 import "./App.css";
 
@@ -161,6 +162,13 @@ function UIKit() {
   const [currentSessionTitle, setCurrentSessionTitle] =
     createSignal<string>("Fix authentication bug");
   
+  // Context info for testing
+  const [contextInfo, setContextInfo] = createSignal<ContextInfo>({
+    usedTokens: 85000,
+    limitTokens: 200000,
+    percentage: 42.5,
+  });
+  
   // Pending permissions tracked separately from tool parts
   const [pendingPermissions, setPendingPermissions] = createSignal<Map<string, Permission>>(
     new Map([
@@ -251,6 +259,22 @@ function UIKit() {
   const toggleThinking = () => setIsThinking(!isThinking());
   const clearMessages = () => setMessages([]);
   const loadFakeMessages = () => setMessages(fakeMessages);
+  
+  const cycleContextPercentage = () => {
+    const current = contextInfo().percentage;
+    console.log('[UIKit] Current context percentage:', current);
+    if (current < 60) {
+      // White -> Pale yellow
+      setContextInfo({ usedTokens: 140000, limitTokens: 200000, percentage: 70 });
+    } else if (current < 85) {
+      // Pale yellow -> Orange
+      setContextInfo({ usedTokens: 180000, limitTokens: 200000, percentage: 90 });
+    } else {
+      // Orange -> White
+      setContextInfo({ usedTokens: 50000, limitTokens: 200000, percentage: 25 });
+    }
+    console.log('[UIKit] New context percentage:', contextInfo().percentage);
+  };
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", height: "100vh" }}>
@@ -308,6 +332,23 @@ function UIKit() {
         >
           Load Fake Messages
         </button>
+        <button 
+          onClick={() => {
+            console.log('[UIKit] Button clicked!');
+            cycleContextPercentage();
+          }}
+          style={{ 
+            padding: "4px 8px", 
+            "font-size": "12px",
+            background: "var(--vscode-button-secondaryBackground, #3a3a3a)",
+            color: "var(--vscode-button-secondaryForeground, white)",
+            border: "none",
+            "border-radius": "2px",
+            cursor: "pointer",
+          }}
+        >
+          Cycle Context % ({contextInfo().percentage.toFixed(0)}%)
+        </button>
         <span style={{ "margin-left": "auto", color: "var(--vscode-descriptionForeground, #888)", "font-size": "12px" }}>
           🎨 UI Kit - Hot Reload Enabled
         </span>
@@ -346,6 +387,7 @@ function UIKit() {
         {hasMessages() && (
           <>
             <div class="input-divider" />
+            <ContextIndicator contextInfo={contextInfo()} />
             <InputBar
               value={input()}
               onInput={setInput}
