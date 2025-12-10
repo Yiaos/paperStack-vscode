@@ -1,5 +1,7 @@
 # Project Status
 
+**Package Manager:** npm (not pnpm or yarn)
+
 ## Goal
 
 Build a VSCode sidebar extension for OpenCode that provides a UI similar to the Amp screenshot - a simple chat interface with input box, thinking indicator, and message history.
@@ -103,15 +105,29 @@ Build for production: `npm run build`
 
 ## Publishing
 
-To publish a new version, always use:
+**ALWAYS use this command to publish a new version:**
 
 ```bash
-npm run publish
+source .env && npm run publish
 ```
 
-This publishes to both VS Code Marketplace and Open VSX. Requires:
-- VS Code Marketplace PAT (login with `npx vsce login <publisher>`)
-- Open VSX token set as `OVSX_PAT` environment variable
+This publishes to both VS Code Marketplace and Open VSX in one command.
+
+### How it works
+
+1. Bump the version in `package.json` first
+2. The script runs `npx vsce publish --skip-duplicate --no-dependencies` for VS Code Marketplace
+3. Then runs `npx ovsx publish -p "$OPEN_VSX_KEY" --no-dependencies` for Open VSX
+
+### Requirements
+
+- **VS Code Marketplace**: Login once with `npx vsce login TanishqKancharla` (uses PAT stored in ~/.vsce)
+- **Open VSX**: Token must be set as `OPEN_VSX_KEY` in `.env` file
+
+### Important notes
+
+- Always source `.env` before running to load the Open VSX token
+- The `--skip-duplicate` flag prevents errors if the version is already published to VS Code Marketplace
 
 ## Debugging
 

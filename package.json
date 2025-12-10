@@ -2,7 +2,7 @@
   "name": "opencode-vscode",
   "displayName": "OpenCode GUI",
   "description": "OpenCode AI coding agent for VSCode GUI extension",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "TanishqKancharla",
   "repository": {
     "type": "git",
@@ -50,7 +50,7 @@
     "uikit": "vite --open /src/webview/uikit.html",
     "test": "vitest",
     "package": "vsce package",
-    "publish": "vsce publish && npx ovsx publish -p \"$OVSX_PAT\""
+    "publish": "npx vsce publish --skip-duplicate --no-dependencies && npx ovsx publish -p \"$OPEN_VSX_KEY\" --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^20.x",
@@ -74,5 +74,4 @@
     "unified": "^11.0.5",
     "vite-plugin-solid": "^2.11.10"
   },
-  "packageManager": "pnpm@10.13.1+sha512.37ebf1a5c7a30d5fabe0c5df44ee8da4c965ca0c5af3dbab28c3a1681b70a256218d05c81c9c0dcf767ef6b8551eb5b960042b9ed4300c59242336377e01cfad"
 }
