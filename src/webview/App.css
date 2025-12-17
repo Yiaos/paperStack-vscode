@@ -316,9 +316,13 @@ body {
 }
 
 .tool-call-light {
-  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-xs);
   font-size: var(--font-size-base);
-  color: var(--vscode-descriptionForeground);
+  font-weight: 500;
+  color: color-mix(in oklab, var(--vscode-foreground) 60%, transparent);
 }
 
 .tool-header {

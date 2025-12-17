@@ -146,6 +146,50 @@ const fakeMessages: Message[] = [
       },
     ],
   },
+  {
+    id: "msg-6",
+    type: "assistant",
+    text: "I've also created some tasks to track the remaining work.",
+    parts: [
+      {
+        id: "part-8",
+        type: "text",
+        text: "I've also created some tasks to track the remaining work.",
+        messageID: "msg-6",
+      },
+      {
+        id: "part-9",
+        type: "tool",
+        tool: "todowrite",
+        messageID: "msg-6",
+        state: {
+          input: {
+            todos: [
+              { id: "1", content: "Add unit tests for bcrypt password comparison", status: "pending" },
+              { id: "2", content: "Update documentation for new auth flow", status: "pending" },
+              { id: "3", content: "Review session timeout handling", status: "in-progress" },
+            ],
+          },
+          status: "completed",
+        },
+      },
+      {
+        id: "part-10",
+        type: "tool",
+        tool: "todoread",
+        messageID: "msg-6",
+        state: {
+          input: {},
+          status: "completed",
+          output: JSON.stringify([
+            { id: "1", content: "Add unit tests for bcrypt password comparison", status: "pending" },
+            { id: "2", content: "Update documentation for new auth flow", status: "completed" },
+            { id: "3", content: "Review session timeout handling", status: "in-progress" },
+          ]),
+        },
+      },
+    ],
+  },
 ];
 
 function UIKit() {
