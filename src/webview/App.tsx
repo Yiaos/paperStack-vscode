@@ -140,7 +140,11 @@ function App() {
 
     onSessionSwitched: (sessionId, title, incomingMessages) => {
       setCurrentSessionId(sessionId);
-      setCurrentSessionTitle(title);
+      // Only update title if it's not a default timestamp title (avoid flash)
+      const isDefaultTitle = /^(New session|Child session) - \d{4}-\d{2}-\d{2}T/.test(title);
+      if (!isDefaultTitle) {
+        setCurrentSessionTitle(title);
+      }
       // Reset - backend will send updated values via file-changes-update and context-update
       setFileChanges(null);
       setContextInfo(null);
@@ -172,6 +176,20 @@ function App() {
       } else {
         setMessages([]);
       }
+    },
+
+    onSessionTitleUpdate: (sessionId, title) => {
+      // Skip default timestamp titles to avoid flash before real title is generated
+      const isDefaultTitle = /^(New session|Child session) - \d{4}-\d{2}-\d{2}T/.test(title);
+      
+      // Update title when OpenCode auto-generates it after first message
+      if (sessionId === currentSessionId() && !isDefaultTitle) {
+        setCurrentSessionTitle(title);
+      }
+      // Also update the session in the list
+      setSessions((prev) => 
+        prev.map((s) => s.id === sessionId ? { ...s, title } : s)
+      );
     },
 
     onPermissionRequired: (permission: Permission) => {

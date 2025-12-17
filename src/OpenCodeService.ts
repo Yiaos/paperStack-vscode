@@ -150,13 +150,13 @@ export class OpenCodeService {
     return this.agents;
   }
 
-  async createSession(title?: string): Promise<string> {
+  async createSession(): Promise<string> {
     if (!this.opencode) {
       throw new Error("OpenCode not initialized");
     }
 
     const response = await this.opencode.client.session.create({
-      body: { title: title || "VSCode Session" },
+      body: {},
     });
 
     if (response.error) {
@@ -209,10 +209,8 @@ export class OpenCodeService {
     return session;
   }
 
-  async createNewSession(title?: string): Promise<string> {
-    const timestamp = new Date().toLocaleString();
-    const sessionTitle = title || `Session ${timestamp}`;
-    return this.createSession(sessionTitle);
+  async createNewSession(): Promise<string> {
+    return this.createSession();
   }
 
   getCurrentSessionId(): string | null {

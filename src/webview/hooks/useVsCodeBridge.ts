@@ -14,6 +14,7 @@ export interface VsCodeBridgeCallbacks {
   onError: (message: string) => void;
   onSessionList: (sessions: Session[]) => void;
   onSessionSwitched: (sessionId: string, title: string, messages?: IncomingMessage[]) => void;
+  onSessionTitleUpdate: (sessionId: string, title: string) => void;
   onPermissionRequired: (permission: Permission) => void;
   onContextUpdate: (contextInfo: ContextInfo) => void;
   onFileChangesUpdate: (fileChanges: FileChangesInfo) => void;
@@ -66,6 +67,11 @@ export function useVsCodeBridge(callbacks: VsCodeBridgeCallbacks) {
 
         case "session-switched":
           callbacks.onSessionSwitched(message.sessionId, message.title, message.messages);
+          break;
+
+        case "session-title-update":
+          console.log('[Bridge] Received session-title-update:', message.sessionId, message.title);
+          callbacks.onSessionTitleUpdate(message.sessionId, message.title);
           break;
 
         case "permission-required":
