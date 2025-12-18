@@ -4,7 +4,78 @@
 }
 
 :root {
-  color-scheme: light dark;
+  /* ===========================================
+   * Theme Variables with VS Code fallbacks
+   * These use VS Code theme variables when available,
+   * falling back to light-dark() for browser UIKit
+   * Light values from VS Code Light Default, Dark from VS Code Dark Default
+   * =========================================== */
+  
+  /* Core Colors */
+  --foreground: var(--vscode-foreground, light-dark(#3b3b3b, #cccccc));
+  --description-foreground: var(--vscode-descriptionForeground, light-dark(#3b3b3b, #9d9d9d));
+  --error-foreground: var(--vscode-errorForeground, #f85149);
+  --focus-border: var(--vscode-focusBorder, light-dark(#005fb8, #0078d4));
+  
+  /* Sidebar */
+  --sidebar-background: var(--vscode-sideBar-background, light-dark(#f8f8f8, #181818));
+  
+  /* Editor */
+  --editor-background: var(--vscode-editor-background, light-dark(#ffffff, #1e1e1e));
+  
+  /* Input */
+  --input-foreground: var(--vscode-input-foreground, light-dark(#3b3b3b, #cccccc));
+  --input-border: var(--vscode-input-border, light-dark(#cecece, #3c3c3c));
+  --input-placeholder-foreground: var(--vscode-input-placeholderForeground, light-dark(#767676, #989898));
+  --input-validation-error-background: var(--vscode-inputValidation-errorBackground, light-dark(#f2dede, #5a1d1d));
+  --input-validation-error-border: var(--vscode-inputValidation-errorBorder, #be1100);
+  
+  /* Button */
+  --button-secondary-background: var(--vscode-button-secondaryBackground, light-dark(#e5e5e5, #313131));
+  --button-secondary-foreground: var(--vscode-button-secondaryForeground, light-dark(#3b3b3b, #cccccc));
+  --button-secondary-hover-background: var(--vscode-button-secondaryHoverBackground, light-dark(#cccccc, #3c3c3c));
+  
+  /* Panel */
+  --panel-border: var(--vscode-panel-border, light-dark(#e5e5e5, #2b2b2b));
+  
+  /* Text */
+  --text-link-foreground: var(--vscode-textLink-foreground, light-dark(#005fb8, #4daafc));
+  --text-link-active-foreground: var(--vscode-textLink-activeForeground, light-dark(#005fb8, #4daafc));
+  --text-code-block-background: var(--vscode-textCodeBlock-background, light-dark(#f8f8f8, #2b2b2b));
+  --text-blockquote-border: var(--vscode-textBlockQuote-border, light-dark(#e5e5e5, #616161));
+  --text-blockquote-foreground: var(--vscode-textBlockQuote-foreground, light-dark(#3b3b3b, #cccccc));
+  --text-blockquote-background: var(--vscode-textBlockQuote-background, light-dark(#f8f8f8, #2b2b2b));
+  
+  /* Editor */
+  --editor-font-family: var(--vscode-editor-font-family, "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace);
+  --editor-line-number-foreground: var(--vscode-editorLineNumber-foreground, #6e7681);
+  
+  /* Diff */
+  --diff-inserted-line-background: var(--vscode-diffEditor-insertedLineBackground, rgba(155, 185, 85, 0.2));
+  --diff-removed-line-background: var(--vscode-diffEditor-removedLineBackground, rgba(255, 0, 0, 0.2));
+  
+  /* Git Decorations */
+  --git-added-foreground: var(--vscode-gitDecoration-addedResourceForeground, light-dark(#587c0c, #89d185));
+  --git-deleted-foreground: var(--vscode-gitDecoration-deletedResourceForeground, light-dark(#ad0707, #f48771));
+  
+  /* Scrollbar */
+  --scrollbar-slider-background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+  --scrollbar-slider-hover-background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
+  --scrollbar-slider-active-background: var(--vscode-scrollbarSlider-activeBackground, rgba(191, 191, 191, 0.4));
+  
+  /* Card background - slightly darker than sidebar for tool calls etc */
+  --card-background: light-dark(
+    color-mix(in oklch, var(--sidebar-background) 98%, black),
+    color-mix(in oklch, var(--sidebar-background) 95%, white)
+  );
+  
+  /* Fonts */
+  --font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+  --font-size: var(--vscode-font-size, 13px);
+  
+  /* ===========================================
+   * Derived Variables (using theme variables above)
+   * =========================================== */
   
   /* Spacing */
   --spacing-xs: 4px;
@@ -12,45 +83,33 @@
   --spacing-md: 8px;
   
   /* Typography */
-  --font-size-base: var(--vscode-font-size);
-  --font-size-small: calc(var(--vscode-font-size) - 1px);
+  --font-size-base: var(--font-size);
+  --font-size-small: calc(var(--font-size) - 1px);
   
   /* Backgrounds */
-  --input-background: light-dark(
-    color-mix(in oklab, black 8%, var(--vscode-sideBar-background)),
-    color-mix(in oklab, white 8%, var(--vscode-sideBar-background))
-  );
-  --input-background-muted: light-dark(
-    color-mix(in oklab, black 4%, var(--vscode-sideBar-background)),
-    color-mix(in oklab, white 4%, var(--vscode-sideBar-background))
-  );
-  --hover-background: light-dark(
-    color-mix(in oklab, black 6%, var(--vscode-sideBar-background)),
-    color-mix(in oklab, white 6%, var(--vscode-sideBar-background))
-  );
-  --hover-background-muted: light-dark(
-    color-mix(in oklab, black 5%, var(--vscode-sideBar-background)),
-    color-mix(in oklab, white 5%, var(--vscode-sideBar-background))
-  );
+  --input-background: var(--editor-background);
+  --input-background-muted: var(--card-background);
+  --hover-background: var(--card-background);
+  --hover-background-muted: var(--card-background);
   
   /* Borders */
-  --border-color: var(--vscode-input-border, color-mix(in srgb, var(--vscode-foreground) 18%, var(--vscode-sideBar-background)));
-  --border-color-muted: color-mix(in oklab, var(--border-color) 60%, var(--vscode-sideBar-background));
-  --focus-border-color: var(--vscode-focusBorder);
+  --border-color: var(--input-border, color-mix(in srgb, var(--foreground) 20%, var(--sidebar-background)));
+  --border-color-muted: color-mix(in oklab, var(--border-color) 80%, var(--sidebar-background));
+  --focus-border-color: var(--focus-border);
   
   /* Padding combinations */
   --padding-button: var(--spacing-xs) var(--spacing-md);
   --padding-button-compact: var(--spacing-xs) var(--spacing-sm);
 }
 
-/* Use VSCode theme variables */
+/* Use theme variables */
 body {
   margin: 0;
   padding: 0;
-  color: var(--vscode-foreground);
-  background-color: var(--vscode-sideBar-background);
-  font-family: var(--vscode-font-family);
-  font-size: var(--vscode-font-size);
+  color: var(--foreground);
+  background-color: var(--sidebar-background);
+  font-family: var(--font-family);
+  font-size: var(--font-size);
   overflow: hidden;
 }
 
@@ -94,8 +153,8 @@ body {
   border: none;
   border-radius: 0;
   background-color: transparent;
-  color: var(--vscode-input-foreground);
-  font-family: var(--vscode-font-family);
+  color: var(--input-foreground);
+  font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 20px;
   resize: none;
@@ -118,7 +177,7 @@ body {
 }
 
 .prompt-input::placeholder {
-  color: var(--vscode-input-placeholderForeground);
+  color: var(--input-placeholder-foreground);
 }
 
 /* Button row below input */
@@ -134,8 +193,8 @@ body {
   border: none;
   border-radius: 3px;
   background-color: transparent;
-  color: var(--vscode-input-foreground);
-  font-family: var(--vscode-font-family);
+  color: var(--input-foreground);
+  font-family: var(--font-family);
   font-size: var(--font-size-small);
   cursor: pointer;
   opacity: 0.5;
@@ -154,26 +213,26 @@ body {
 }
 
 .shortcut-button:focus-visible {
-  outline: 2px solid var(--vscode-focusBorder);
+  outline: 2px solid var(--focus-border);
   outline-offset: 1px;
 }
 
 .shortcut-button--secondary {
   border: none;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
+  background-color: var(--button-secondary-background);
+  color: var(--button-secondary-foreground);
   opacity: 0.8;
 }
 
 .shortcut-button--secondary:hover:not(:disabled) {
   opacity: 1;
-  background-color: var(--vscode-button-secondaryHoverBackground);
+  background-color: var(--button-secondary-hover-background);
 }
 
 .shortcut-button--stop {
   border: none;
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
+  background-color: var(--button-secondary-background);
+  color: var(--button-secondary-foreground);
   opacity: 0.8;
   display: flex;
   align-items: center;
@@ -183,7 +242,7 @@ body {
 
 .shortcut-button--stop:hover {
   opacity: 1;
-  background-color: var(--vscode-button-secondaryHoverBackground);
+  background-color: var(--button-secondary-hover-background);
 }
 
 .shortcut-button--stop svg {
@@ -195,7 +254,7 @@ body {
 .loading-indicator {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: var(--font-size-base);
-  color: var(--vscode-descriptionForeground);
+  color: var(--description-foreground);
   padding: var(--spacing-md);
   user-select: none;
 }
@@ -229,7 +288,7 @@ body {
   background-color: var(--input-background);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  color: var(--vscode-input-foreground);
+  color: var(--input-foreground);
   line-height: 20px;
   word-wrap: break-word;
   white-space: pre-wrap;
@@ -241,7 +300,7 @@ body {
 
 .message--assistant .message-content {
   background-color: transparent;
-  color: var(--vscode-foreground);
+  color: var(--foreground);
   line-height: 1.6;
   word-wrap: break-word;
   overflow-wrap: anywhere;
@@ -251,19 +310,19 @@ body {
 }
 
 .message-content a {
-  color: var(--vscode-textLink-foreground);
+  color: var(--text-link-foreground);
   text-decoration: none;
 }
 
 .message-content a:hover {
-  color: var(--vscode-textLink-activeForeground);
+  color: var(--text-link-active-foreground);
   text-decoration: underline;
 }
 
 .message-content code {
-  font-family: var(--vscode-editor-font-family);
-  background-color: var(--vscode-textCodeBlock-background);
-  border: 1px solid var(--vscode-panel-border);
+  font-family: var(--editor-font-family);
+  background-color: var(--text-code-block-background);
+  border: 1px solid var(--panel-border);
   border-radius: 3px;
   padding: 0 3px;
 }
@@ -282,16 +341,16 @@ body {
 }
 
 .messages-container::-webkit-scrollbar-thumb {
-  background: var(--vscode-scrollbarSlider-background);
+  background: var(--scrollbar-slider-background);
   border-radius: 5px;
 }
 
 .messages-container::-webkit-scrollbar-thumb:hover {
-  background: var(--vscode-scrollbarSlider-hoverBackground);
+  background: var(--scrollbar-slider-hover-background);
 }
 
 .messages-container::-webkit-scrollbar-thumb:active {
-  background: var(--vscode-scrollbarSlider-activeBackground);
+  background: var(--scrollbar-slider-active-background);
 }
 
 /* Tool Call Styles */
@@ -306,12 +365,12 @@ body {
 }
 
 .tool-call--needs-permission {
-  border: 1px solid #ffa500;
+  border: 1px solid light-dark(rgba(255, 165, 0, 0.18), rgba(255, 165, 0, 0.15));
   outline: none;
 }
 
 .tool-call--needs-permission:focus {
-  border: 1px solid #ffa500;
+  border: 1px solid light-dark(rgba(255, 165, 0, 0.18), rgba(255, 165, 0, 0.15));
   outline: none;
 }
 
@@ -319,26 +378,41 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 0 var(--spacing-xs);
+  padding: 0;
   font-size: var(--font-size-base);
   font-weight: 500;
-  color: color-mix(in oklab, var(--vscode-foreground) 60%, transparent);
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
 }
 
 .tool-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-md);
   padding: var(--spacing-xs);
 }
 
+.tool-icon {
+  line-height: 20px;
+  flex-shrink: 0;
+}
+
 .tool-text {
   flex: 1;
-  color: var(--vscode-foreground);
+  color: var(--foreground);
   font-size: var(--font-size-base);
+  line-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tool-text--bash {
+  font-size: var(--font-size-small);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
 }
 
 .tool-file-path {
@@ -347,7 +421,7 @@ body {
 }
 
 .tool-file-dir {
-  color: color-mix(in oklab, var(--vscode-foreground) 50%, transparent);
+  color: color-mix(in oklab, var(--foreground) 50%, transparent);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -355,13 +429,31 @@ body {
 }
 
 .tool-file-name {
-  color: var(--vscode-foreground);
+  color: var(--foreground);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
+.tool-diff-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.tool-diff-stats__additions {
+  color: var(--git-added-foreground);
+}
+
+.tool-diff-stats__deletions {
+  color: var(--git-deleted-foreground);
+}
+
 .tool-output-container {
-  background-color: var(--vscode-textCodeBlock-background);
+  background-color: var(--text-code-block-background);
   border-top: 1px solid var(--border-color-muted);
 }
 
@@ -371,9 +463,9 @@ body {
   background-color: transparent;
   border: none;
   border-radius: 0;
-  font-family: var(--vscode-font-family);
+  font-family: var(--font-family);
   font-size: var(--font-size-base);
-  color: var(--vscode-foreground);
+  color: var(--foreground);
   overflow-x: auto;
   white-space: pre-wrap;
   max-height: 160px;
@@ -383,19 +475,19 @@ body {
 }
 
 .tool-content a {
-  color: var(--vscode-textLink-foreground);
+  color: var(--text-link-foreground);
   text-decoration: none;
 }
 
 .tool-content a:hover {
-  color: var(--vscode-textLink-activeForeground);
+  color: var(--text-link-active-foreground);
   text-decoration: underline;
 }
 
 .tool-error {
-  color: var(--vscode-errorForeground);
-  background-color: var(--vscode-inputValidation-errorBackground);
-  border-color: var(--vscode-inputValidation-errorBorder);
+  color: var(--error-foreground);
+  background-color: var(--input-validation-error-background);
+  border-color: var(--input-validation-error-border);
 }
 
 /* Tool Permission Buttons */
@@ -405,6 +497,13 @@ body {
   gap: var(--spacing-xs);
   padding: var(--spacing-xs);
   border-top: 1px solid var(--border-color-muted);
+  background: repeating-linear-gradient(
+    -45deg,
+    light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.25)),
+    light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.25)) 8px,
+    light-dark(rgba(255, 165, 0, 0.18), rgba(255, 165, 0, 0.15)) 8px,
+    light-dark(rgba(255, 165, 0, 0.18), rgba(255, 165, 0, 0.15)) 16px
+  );
 }
 
 .permission-spacer {
@@ -417,7 +516,7 @@ body {
   padding: var(--padding-button);
   border: none;
   border-radius: 3px;
-  font-family: var(--vscode-font-family);
+  font-family: var(--font-family);
   font-size: var(--font-size-small);
   cursor: default;
   line-height: 1;
@@ -427,33 +526,29 @@ body {
 
 .permission-button--quiet {
   background-color: transparent;
-  color: var(--vscode-foreground);
-  opacity: 0.6;
+  color: var(--foreground);
 }
 
 .permission-button--quiet:hover {
-  opacity: 1;
   background-color: var(--hover-background);
 }
 
 .permission-button--quiet:focus-visible {
-  outline: 2px solid var(--vscode-focusBorder);
+  outline: 2px solid var(--focus-border);
   outline-offset: 1px;
 }
 
 .permission-button--primary {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  opacity: 0.8;
+  background-color: var(--button-secondary-background);
+  color: var(--button-secondary-foreground);
 }
 
 .permission-button--primary:hover {
-  opacity: 1;
-  background-color: var(--vscode-button-secondaryHoverBackground);
+  background-color: var(--button-secondary-hover-background);
 }
 
 .permission-button--primary:focus-visible {
-  outline: 2px solid var(--vscode-focusBorder);
+  outline: 2px solid var(--focus-border);
   outline-offset: 1px;
 }
 
@@ -468,7 +563,7 @@ body {
   display: inline;
   cursor: pointer;
   list-style: none;
-  color: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
   font-size: var(--font-size-small);
   font-weight: 500;
   user-select: none;
@@ -481,23 +576,13 @@ body {
 .reasoning-content {
   padding: var(--spacing-md) 12px;
   margin-top: var(--spacing-xs);
-  border-left: 2px solid var(--vscode-panel-border);
-  color: var(--vscode-foreground);
-  font-style: italic;
-  line-height: 1.6;
+  background-color: var(--input-background-muted);
+  border-left: 2px solid var(--border-color);
+  color: var(--description-foreground);
+  font-size: var(--font-size-small);
+  line-height: 1.5;
   white-space: pre-wrap;
-}
-
-.message-text:first-child {
-  margin-top: 0;
-}
-
-.message-text:last-child {
-  margin-bottom: 0;
-}
-
-.message--assistant .message-text {
-  padding: 0 var(--spacing-xs);
+  word-wrap: break-word;
 }
 
 /* Step Indicator */
@@ -507,10 +592,10 @@ body {
   gap: var(--spacing-md);
   padding: var(--spacing-md) 12px;
   margin: var(--spacing-xs) 0;
-  border: 1px solid var(--vscode-panel-border);
+  border: 1px solid var(--panel-border);
   border-radius: 4px;
-  background-color: var(--vscode-sideBar-background);
-  color: var(--vscode-descriptionForeground);
+  background-color: var(--sidebar-background);
+  color: var(--description-foreground);
   font-size: var(--font-size-small);
 }
 
@@ -541,8 +626,8 @@ body.vscode-high-contrast {
   border: none;
   border-radius: 3px;
   background-color: transparent;
-  color: var(--vscode-foreground);
-  font-family: var(--vscode-font-family);
+  color: var(--foreground);
+  font-family: var(--font-family);
   font-size: var(--font-size-small);
   cursor: pointer;
   opacity: 0.6;
@@ -556,7 +641,7 @@ body.vscode-high-contrast {
 }
 
 .agent-switcher-button:focus-visible {
-  outline: 2px solid var(--vscode-focusBorder);
+  outline: 2px solid var(--focus-border);
   outline-offset: 1px;
 }
 
@@ -566,8 +651,8 @@ body.vscode-high-contrast {
   align-items: center;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
-  background: var(--vscode-sideBar-background);
-  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--sidebar-background);
+  border-bottom: 1px solid var(--panel-border);
   flex-shrink: 0;
 }
 
@@ -588,8 +673,8 @@ body.vscode-high-contrast {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   background-color: var(--input-background-muted);
-  color: color-mix(in oklab, var(--vscode-foreground) 80%, var(--vscode-sideBar-background));
-  font-family: var(--vscode-font-family);
+  color: color-mix(in oklab, var(--foreground) 80%, var(--sidebar-background));
+  font-family: var(--font-family);
   font-size: var(--font-size-base);
   font-weight: 500;
   cursor: pointer;
@@ -600,7 +685,7 @@ body.vscode-high-contrast {
 
 .session-switcher-button:hover:not(:disabled), .session-switcher-button:active:not(:disabled), .session-switcher-button.active:not(:disabled) {
   background-color: var(--hover-background);
-  color: var(--vscode-foreground);
+  color: var(--foreground);
   border-color: var(--border-color);
 }
 
@@ -611,7 +696,7 @@ body.vscode-high-contrast {
 }
 
 .session-switcher-button:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
+  outline: 1px solid var(--focus-border);
   outline-offset: 0;
 }
 
@@ -621,7 +706,7 @@ body.vscode-high-contrast {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-bottom: 1px;
-  font-family: var(--vscode-font-family);
+  font-family: var(--font-family);
   font-size: var(--font-size-small);
   font-weight: 500;
   /* To align with the session dropdown rows */
@@ -659,7 +744,7 @@ body.vscode-high-contrast {
   border-bottom: 1px solid var(--border-color-muted);
   border-left: 2px solid transparent;
   background-color: transparent;
-  color: color-mix(in oklab, var(--vscode-foreground) 80%, var(--input-background));
+  color: color-mix(in oklab, var(--foreground) 80%, var(--input-background));
 }
 
 .session-item:last-child {
@@ -668,17 +753,17 @@ body.vscode-high-contrast {
 
 .session-item:hover {
   background-color: var(--hover-background);
-  color: var(--vscode-foreground);
+  color: var(--foreground);
 }
 
 .session-item.selected {
   background-color: var(--hover-background);
-  color: var(--vscode-foreground);
-  border-left-color: var(--vscode-focusBorder);
+  color: var(--foreground);
+  border-left-color: var(--focus-border);
 }
 
 .session-item-title {
-  font-family: var(--vscode-font-family);
+  font-family: var(--font-family);
   font-size: var(--font-size-small);
   font-weight: 500;
   flex: 1;
@@ -706,8 +791,8 @@ body.vscode-high-contrast {
   border: 1px solid transparent;
   border-radius: 4px;
   background-color: transparent;
-  color: var(--vscode-input-foreground);
-  font-family: var(--vscode-font-family);
+  color: var(--input-foreground);
+  font-family: var(--font-family);
   font-size: var(--font-size-base);
   font-weight: 500;
   cursor: pointer;
@@ -723,7 +808,7 @@ body.vscode-high-contrast {
 }
 
 .new-session-button:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
+  outline: 1px solid var(--focus-border);
   outline-offset: 0;
 }
 
@@ -739,19 +824,19 @@ body.vscode-high-contrast {
 
 /* File Changes Summary */
 .file-changes-summary {
-  font-family: var(--vscode-font-family);
+  font-family: var(--font-family);
   font-size: var(--font-size-small);
-  color: var(--vscode-descriptionForeground);
+  color: var(--description-foreground);
   user-select: none;
   line-height: 12px;
 }
 
 .file-changes-summary__additions {
-  color: var(--vscode-gitDecoration-addedResourceForeground, #89d185);
+  color: var(--git-added-foreground);
 }
 
 .file-changes-summary__deletions {
-  color: var(--vscode-gitDecoration-deletedResourceForeground, #f48771);
+  color: var(--git-deleted-foreground);
 }
 
 /* Context Indicator */
@@ -771,10 +856,7 @@ body.vscode-high-contrast {
 }
 
 .context-indicator__ring-bg {
-  stroke: light-dark(
-    color-mix(in oklab, black 8%, var(--vscode-sideBar-background)),
-    color-mix(in oklab, white 8%, var(--vscode-sideBar-background))
-  );
+  stroke: color-mix(in srgb, var(--foreground) 15%, transparent);
 }
 
 .context-indicator__ring-progress {
@@ -782,12 +864,13 @@ body.vscode-high-contrast {
 }
 
 .context-indicator__text {
-  font-family: var(--vscode-font-family);
+  font-family: var(--font-family);
   font-size: var(--font-size-small);
-  color: var(--vscode-descriptionForeground);
+  color: var(--description-foreground);
   font-weight: 500;
   user-select: none;
   line-height: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Markdown Styles */
@@ -842,9 +925,9 @@ body.vscode-high-contrast {
 .message-text blockquote {
   margin: 0.5em 0;
   padding: 0.25em 0 0.25em 1em;
-  border-left: 3px solid var(--vscode-textBlockQuote-border);
-  color: var(--vscode-textBlockQuote-foreground);
-  background-color: var(--vscode-textBlockQuote-background);
+  border-left: 3px solid var(--text-blockquote-border);
+  color: var(--text-blockquote-foreground);
+  background-color: var(--text-blockquote-background);
 }
 
 .message-text blockquote > *:first-child {
@@ -858,17 +941,17 @@ body.vscode-high-contrast {
 .message-text hr {
   margin: 1em 0;
   border: none;
-  border-top: 1px solid var(--vscode-panel-border);
+  border-top: 1px solid var(--panel-border);
 }
 
 .message-text pre {
   margin: 0.5em 0;
   padding: 0.75em;
-  background-color: var(--vscode-textCodeBlock-background);
-  border: 1px solid var(--vscode-panel-border);
+  background-color: var(--text-code-block-background);
+  border: 1px solid var(--panel-border);
   border-radius: 4px;
   overflow-x: auto;
-  font-family: var(--vscode-editor-font-family);
+  font-family: var(--editor-font-family);
   font-size: 0.9em;
   line-height: 1.4;
 }
@@ -881,21 +964,21 @@ body.vscode-high-contrast {
 }
 
 .message-text code {
-  font-family: var(--vscode-editor-font-family);
+  font-family: var(--editor-font-family);
   font-size: 0.9em;
-  background-color: var(--vscode-textCodeBlock-background);
-  border: 1px solid var(--vscode-panel-border);
+  background-color: var(--text-code-block-background);
+  border: 1px solid var(--panel-border);
   border-radius: 3px;
   padding: 0.1em 0.3em;
 }
 
 .message-text a {
-  color: var(--vscode-textLink-foreground);
+  color: var(--text-link-foreground);
   text-decoration: none;
 }
 
 .message-text a:hover {
-  color: var(--vscode-textLink-activeForeground);
+  color: var(--text-link-active-foreground);
   text-decoration: underline;
 }
 
@@ -921,17 +1004,17 @@ body.vscode-high-contrast {
 .message-text th,
 .message-text td {
   padding: 0.5em 0.75em;
-  border: 1px solid var(--vscode-panel-border);
+  border: 1px solid var(--panel-border);
   text-align: left;
 }
 
 .message-text th {
-  background-color: color-mix(in oklab, white 4%, var(--vscode-sideBar-background));
+  background-color: var(--card-background);
   font-weight: 600;
 }
 
 .message-text tr:nth-child(even) td {
-  background-color: color-mix(in oklab, white 2%, var(--vscode-sideBar-background));
+  background-color: var(--card-background);
 }
 
 .message-text img {
@@ -942,4 +1025,65 @@ body.vscode-high-contrast {
 .message-text input[type="checkbox"] {
   margin-right: 0.5em;
   vertical-align: middle;
+}
+
+/* Diff Viewer */
+.diff-viewer {
+  font-family: var(--editor-font-family);
+  font-size: var(--font-size-small);
+  line-height: 1.4;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  min-width: fit-content;
+}
+
+.diff-line-range {
+  padding: 2px var(--spacing-md);
+  color: var(--editor-line-number-foreground);
+  font-size: var(--font-size-small);
+  user-select: none;
+}
+
+.diff-line-range-num {
+  opacity: 0.7;
+}
+
+.diff-line {
+  display: flex;
+  white-space: pre;
+  min-width: 100%;
+}
+
+.diff-line--add {
+  background-color: var(--diff-inserted-line-background);
+}
+
+.diff-line--remove {
+  background-color: var(--diff-removed-line-background);
+}
+
+.diff-line--context {
+  background-color: transparent;
+}
+
+.diff-line-sign {
+  display: inline-block;
+  width: 2ch;
+  padding-left: var(--spacing-xs);
+  text-align: center;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.diff-line--add .diff-line-sign {
+  color: var(--git-added-foreground);
+}
+
+.diff-line--remove .diff-line-sign {
+  color: var(--git-deleted-foreground);
+}
+
+.diff-line-content {
+  flex: 1;
 }

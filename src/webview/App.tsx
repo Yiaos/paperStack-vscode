@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import { createSignal, createMemo, Show, onMount } from "solid-js";
 import { InputBar } from "./components/InputBar";
 import { MessageList } from "./components/MessageList";

@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import { createEffect, onMount, Show } from "solid-js";
 import type { Agent } from "../types";
 import { AgentSwitcher } from "./AgentSwitcher";

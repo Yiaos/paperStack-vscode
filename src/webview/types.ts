@@ -19,6 +19,12 @@ export interface ToolState {
     start: number;
     end?: number;
   };
+  metadata?: {
+    diff?: string;
+    diagnostics?: unknown;
+    filediff?: unknown;
+    [key: string]: unknown;
+  };
 }
 
 export interface Message {

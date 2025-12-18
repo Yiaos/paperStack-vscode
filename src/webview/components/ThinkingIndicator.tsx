@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import { Show, createSignal, onCleanup } from "solid-js";
 
 interface ThinkingIndicatorProps {

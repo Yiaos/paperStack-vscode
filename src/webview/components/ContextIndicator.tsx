@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import { Show, createMemo } from "solid-js";
 import type { ContextInfo } from "../types";
 
@@ -9,13 +9,14 @@ interface ContextIndicatorProps {
 export function ContextIndicator(props: ContextIndicatorProps) {
   const percentage = createMemo(() => props.contextInfo?.percentage ?? 0);
   
-  // Color based on usage: white < 60%, pale yellow 60-85%, orange > 85%
+  // Color based on usage: blue < 60%, yellow 60-85%, orange > 85%
+  // Using OKLCH for perceptually uniform lightness and chroma across hues
   const color = createMemo(() => 
     percentage() < 60 
-      ? 'var(--vscode-foreground)' 
+      ? 'oklch(0.7 0.12 250)' 
       : percentage() < 85 
-      ? '#d4c27c' 
-      : '#e59c4b'
+      ? 'oklch(0.7 0.12 90)' 
+      : 'oklch(0.7 0.12 30)'
   );
 
   return (

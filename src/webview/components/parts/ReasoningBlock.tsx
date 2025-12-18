@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import type { MessagePart } from "../../types";
 
 interface ReasoningBlockProps {

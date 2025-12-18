@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import { createSignal, createMemo, For, Show, createContext, useContext, JSX } from "solid-js";
 import type { PluggableList } from "unified";
 import remend from "./remend";

@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import { For, Show } from "solid-js";
 import type { Message, Permission } from "../types";
 import { MessagePartRenderer } from "./MessagePartRenderer";

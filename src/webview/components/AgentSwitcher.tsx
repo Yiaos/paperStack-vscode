@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import type { Agent } from "../types";
 
 interface AgentSwitcherProps {

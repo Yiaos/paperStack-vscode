@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import type { MessagePart, Permission } from "../types";
 import { TextBlock } from "./parts/TextBlock";
 import { ReasoningBlock } from "./parts/ReasoningBlock";

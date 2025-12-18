@@ -1,20 +1,41 @@
-/* @jsxImportSource solid-js */
-import { render } from "solid-js/web";
+
 import { createSignal } from "solid-js";
+import { render } from "solid-js/web";
+import "./App.css";
+import { ContextIndicator } from "./components/ContextIndicator";
+import { FileChangesSummary } from "./components/FileChangesSummary";
 import { InputBar } from "./components/InputBar";
 import { MessageList } from "./components/MessageList";
 import { TopBar } from "./components/TopBar";
-import { ContextIndicator } from "./components/ContextIndicator";
-import { FileChangesSummary } from "./components/FileChangesSummary";
-import type { Message, Agent, Session, Permission, ContextInfo, FileChangesInfo } from "./types";
-import "./uikit.css"; // VSCode theme variable fallbacks for browser
-import "./App.css";
+import type {
+  Agent,
+  ContextInfo,
+  FileChangesInfo,
+  Message,
+  Permission,
+  Session,
+} from "./types";
 
 // Fake data for UI development
 const fakeAgents: Agent[] = [
-  { name: "general", description: "General purpose agent", mode: "primary", builtIn: true },
-  { name: "code", description: "Code specialist", mode: "subagent", builtIn: true },
-  { name: "debug", description: "Debugging expert", mode: "subagent", builtIn: true },
+  {
+    name: "general",
+    description: "General purpose agent",
+    mode: "primary",
+    builtIn: true,
+  },
+  {
+    name: "code",
+    description: "Code specialist",
+    mode: "subagent",
+    builtIn: true,
+  },
+  {
+    name: "debug",
+    description: "Debugging expert",
+    mode: "subagent",
+    builtIn: true,
+  },
 ];
 
 const fakeSessions: Session[] = [
@@ -86,7 +107,11 @@ const fakeMessages: Message[] = [
         callID: "call-1",
         state: {
           input: {
-            command: "npm test auth",
+            command: `npm run test -- --grep "auth" \\
+  --reporter=verbose \\
+  --coverage \\
+  --watch=false \\
+  --timeout=5000`,
             description: "Run authentication tests",
           },
           status: "pending",
@@ -118,6 +143,25 @@ const fakeMessages: Message[] = [
         state: {
           input: { filePath: "/src/auth/login.ts" },
           status: "completed",
+          metadata: {
+            diff: `@@ -42,10 +42,12 @@ export async function login(email: string, password: string) {
+   const user = await db.users.findByEmail(email);
+   if (!user) {
+     throw new AuthError('User not found');
+   }
+-  if (user.password === password) {
+-    return generateToken(user);
++  const isValid = await bcrypt.compare(password, user.hashedPassword);
++  if (isValid) {
++    const token = generateToken(user);
++    await logLoginAttempt(user.id, true);
++    return token;
+   }
+-  throw new AuthError('Invalid password');
++  await logLoginAttempt(user.id, false);
++  throw new AuthError('Invalid credentials');
+ }`,
+          },
         },
       },
       {
@@ -165,9 +209,21 @@ const fakeMessages: Message[] = [
         state: {
           input: {
             todos: [
-              { id: "1", content: "Add unit tests for bcrypt password comparison", status: "pending" },
-              { id: "2", content: "Update documentation for new auth flow", status: "pending" },
-              { id: "3", content: "Review session timeout handling", status: "in-progress" },
+              {
+                id: "1",
+                content: "Add unit tests for bcrypt password comparison",
+                status: "pending",
+              },
+              {
+                id: "2",
+                content: "Update documentation for new auth flow",
+                status: "pending",
+              },
+              {
+                id: "3",
+                content: "Review session timeout handling",
+                status: "in-progress",
+              },
             ],
           },
           status: "completed",
@@ -182,9 +238,21 @@ const fakeMessages: Message[] = [
           input: {},
           status: "completed",
           output: JSON.stringify([
-            { id: "1", content: "Add unit tests for bcrypt password comparison", status: "pending" },
-            { id: "2", content: "Update documentation for new auth flow", status: "completed" },
-            { id: "3", content: "Review session timeout handling", status: "in-progress" },
+            {
+              id: "1",
+              content: "Add unit tests for bcrypt password comparison",
+              status: "pending",
+            },
+            {
+              id: "2",
+              content: "Update documentation for new auth flow",
+              status: "completed",
+            },
+            {
+              id: "3",
+              content: "Review session timeout handling",
+              status: "in-progress",
+            },
           ]),
         },
       },
@@ -204,9 +272,10 @@ function UIKit() {
   const [currentSessionId, setCurrentSessionId] = createSignal<string | null>(
     "session-1"
   );
-  const [currentSessionTitle, setCurrentSessionTitle] =
-    createSignal<string>("Fix authentication bug");
-  
+  const [currentSessionTitle, setCurrentSessionTitle] = createSignal<string>(
+    "Fix authentication bug"
+  );
+
   // Context info for testing
   const [contextInfo, setContextInfo] = createSignal<ContextInfo>({
     usedTokens: 85000,
@@ -220,20 +289,25 @@ function UIKit() {
     additions: 127,
     deletions: 43,
   });
-  
+
   // Pending permissions tracked separately from tool parts
-  const [pendingPermissions, setPendingPermissions] = createSignal<Map<string, Permission>>(
+  const [pendingPermissions, setPendingPermissions] = createSignal<
+    Map<string, Permission>
+  >(
     new Map([
-      ["call-1", {
-        id: "perm-1",
-        type: "bash",
-        sessionID: "session-1",
-        messageID: "msg-2",
-        callID: "call-1",
-        title: "Run bash command: npm test auth",
-        metadata: {},
-        time: { created: Date.now() },
-      }],
+      [
+        "call-1",
+        {
+          id: "perm-1",
+          type: "bash",
+          sessionID: "session-1",
+          messageID: "msg-2",
+          callID: "call-1",
+          title: "Run bash command: npm run test -- --grep auth",
+          metadata: {},
+          time: { created: Date.now() },
+        },
+      ],
     ])
   );
 
@@ -292,7 +366,10 @@ function UIKit() {
     setMessages([]);
   };
 
-  const handlePermissionResponse = (permissionId: string, response: "once" | "always" | "reject") => {
+  const handlePermissionResponse = (
+    permissionId: string,
+    response: "once" | "always" | "reject"
+  ) => {
     console.log(`[UIKit] Permission response: ${response} for ${permissionId}`);
     // Remove the permission from pending permissions
     setPendingPermissions((prev) => {
@@ -311,25 +388,39 @@ function UIKit() {
   const toggleThinking = () => setIsThinking(!isThinking());
   const clearMessages = () => setMessages([]);
   const loadFakeMessages = () => setMessages(fakeMessages);
-  
+
   const cycleContextPercentage = () => {
     const current = contextInfo().percentage;
-    console.log('[UIKit] Current context percentage:', current);
+    console.log("[UIKit] Current context percentage:", current);
     if (current < 60) {
       // White -> Pale yellow
-      setContextInfo({ usedTokens: 140000, limitTokens: 200000, percentage: 70 });
+      setContextInfo({
+        usedTokens: 140000,
+        limitTokens: 200000,
+        percentage: 70,
+      });
     } else if (current < 85) {
       // Pale yellow -> Orange
-      setContextInfo({ usedTokens: 180000, limitTokens: 200000, percentage: 90 });
+      setContextInfo({
+        usedTokens: 180000,
+        limitTokens: 200000,
+        percentage: 90,
+      });
     } else {
       // Orange -> White
-      setContextInfo({ usedTokens: 50000, limitTokens: 200000, percentage: 25 });
+      setContextInfo({
+        usedTokens: 50000,
+        limitTokens: 200000,
+        percentage: 25,
+      });
     }
-    console.log('[UIKit] New context percentage:', contextInfo().percentage);
+    console.log("[UIKit] New context percentage:", contextInfo().percentage);
   };
 
   return (
-    <div style={{ display: "flex", "flex-direction": "column", height: "100vh" }}>
+    <div
+      style={{ display: "flex", "flex-direction": "column", height: "100vh" }}
+    >
       {/* Control Panel */}
       <div
         style={{
@@ -342,10 +433,10 @@ function UIKit() {
           "align-items": "center",
         }}
       >
-        <button 
-          onClick={toggleThinking} 
-          style={{ 
-            padding: "4px 8px", 
+        <button
+          onClick={toggleThinking}
+          style={{
+            padding: "4px 8px",
             "font-size": "12px",
             background: "var(--vscode-button-background, #0e639c)",
             color: "var(--vscode-button-foreground, white)",
@@ -356,10 +447,10 @@ function UIKit() {
         >
           {isThinking() ? "Stop Thinking" : "Start Thinking"}
         </button>
-        <button 
-          onClick={clearMessages} 
-          style={{ 
-            padding: "4px 8px", 
+        <button
+          onClick={clearMessages}
+          style={{
+            padding: "4px 8px",
             "font-size": "12px",
             background: "var(--vscode-button-secondaryBackground, #3a3a3a)",
             color: "var(--vscode-button-secondaryForeground, white)",
@@ -370,10 +461,10 @@ function UIKit() {
         >
           Clear Messages
         </button>
-        <button 
-          onClick={loadFakeMessages} 
-          style={{ 
-            padding: "4px 8px", 
+        <button
+          onClick={loadFakeMessages}
+          style={{
+            padding: "4px 8px",
             "font-size": "12px",
             background: "var(--vscode-button-secondaryBackground, #3a3a3a)",
             color: "var(--vscode-button-secondaryForeground, white)",
@@ -384,13 +475,13 @@ function UIKit() {
         >
           Load Fake Messages
         </button>
-        <button 
+        <button
           onClick={() => {
-            console.log('[UIKit] Button clicked!');
+            console.log("[UIKit] Button clicked!");
             cycleContextPercentage();
           }}
-          style={{ 
-            padding: "4px 8px", 
+          style={{
+            padding: "4px 8px",
             "font-size": "12px",
             background: "var(--vscode-button-secondaryBackground, #3a3a3a)",
             color: "var(--vscode-button-secondaryForeground, white)",
@@ -401,13 +492,22 @@ function UIKit() {
         >
           Cycle Context % ({contextInfo().percentage.toFixed(0)}%)
         </button>
-        <span style={{ "margin-left": "auto", color: "var(--vscode-descriptionForeground, #888)", "font-size": "12px" }}>
+        <span
+          style={{
+            "margin-left": "auto",
+            color: "var(--vscode-descriptionForeground, #888)",
+            "font-size": "12px",
+          }}
+        >
           🎨 UI Kit - Hot Reload Enabled
         </span>
       </div>
 
       {/* Main App UI */}
-      <div class={`app ${hasMessages() ? "app--has-messages" : ""}`} style={{ flex: 1, width: "320px", margin: "0 auto" }}>
+      <div
+        class={`app ${hasMessages() ? "app--has-messages" : ""}`}
+        style={{ flex: 1, width: "320px", margin: "0 auto" }}
+      >
         <TopBar
           sessions={sessions()}
           currentSessionId={currentSessionId()}

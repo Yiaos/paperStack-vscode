@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import type { Element, Nodes } from "hast";
 import type { JSX } from "solid-js";
 import remarkParse from "remark-parse";

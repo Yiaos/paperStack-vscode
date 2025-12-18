@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+
 import { For, createSignal, onMount, onCleanup, createEffect, on } from "solid-js";
 import type { Message, Permission } from "../types";
 import { MessageItem } from "./MessageItem";

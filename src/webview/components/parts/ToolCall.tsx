@@ -1,6 +1,7 @@
-/* @jsxImportSource solid-js */
+
 import { Match, Show, Switch, createEffect, createSignal, createMemo } from "solid-js";
 import type { ToolState as BaseToolState, MessagePart, Permission } from "../../types";
+import { DiffViewer, getDiffStats } from "./DiffViewer";
 
 type ToolName =
   | "read"
@@ -453,7 +454,7 @@ function getToolDisplayInfo(
     case "todoread":
       return {
         icon: ChecklistIcon,
-        text: tool === "todowrite" ? "Update todos" : "Read todos",
+        text: tool === "todowrite" ? "Updated todos" : "Read todos",
         monospace: false,
         isLight: true,
       };
@@ -562,13 +563,23 @@ export function ToolCall(props: ToolCallProps) {
   const state = props.part.state as ToolState | undefined;
   if (!state) return null;
 
-  const [isOpen, setIsOpen] = createSignal(false);
+  const shouldDefaultOpen = tool === "edit" || tool === "write" || tool === "bash";
+  const [isOpen, setIsOpen] = createSignal(shouldDefaultOpen);
   const [toolCallRef, setToolCallRef] = createSignal<HTMLDivElement | null>(
     null
   );
   const displayInfo = getToolDisplayInfo(tool, state, props.workspaceRoot);
   const Icon = displayInfo.icon;
-  const hasOutput = !!(state.output || state.error);
+  const hasDiff = !!(state.metadata?.diff);
+  const isEditTool = tool === "edit" || tool === "write";
+  const hasOutput = !!(state.output || state.error || (isEditTool && hasDiff));
+  
+  const diffStats = createMemo(() => {
+    if (isEditTool && hasDiff && state.metadata?.diff) {
+      return getDiffStats(state.metadata.diff);
+    }
+    return null;
+  });
   
   // Look up permission from pendingPermissions map using callID
   const permission = createMemo(() => {
@@ -657,12 +668,13 @@ export function ToolCall(props: ToolCallProps) {
             onClick={() => hasOutput && setIsOpen(!isOpen())}
             style={{ cursor: hasOutput ? "pointer" : "default" }}
           >
-            {Icon && <Icon />}
+            {Icon && <span class="tool-icon"><Icon /></span>}
             <Show
               when={displayInfo.isFilePath}
               fallback={
                 <span
                   class="tool-text"
+                  classList={{ "tool-text--bash": tool === "bash" }}
                   style={{
                     "font-family": displayInfo.monospace
                       ? "monospace"
@@ -676,6 +688,16 @@ export function ToolCall(props: ToolCallProps) {
               <span class="tool-text tool-file-path">
                 <span class="tool-file-dir">{displayInfo.dirPath}</span>
                 <span class="tool-file-name">{displayInfo.fileName}</span>
+              </span>
+            </Show>
+            <Show when={diffStats()}>
+              <span class="tool-diff-stats">
+                <Show when={diffStats()!.additions > 0}>
+                  <span class="tool-diff-stats__additions">+{diffStats()!.additions}</span>
+                </Show>
+                <Show when={diffStats()!.deletions > 0}>
+                  <span class="tool-diff-stats__deletions">-{diffStats()!.deletions}</span>
+                </Show>
               </span>
             </Show>
             {hasOutput && <ChevronDownIcon isOpen={isOpen()} />}
@@ -718,7 +740,14 @@ export function ToolCall(props: ToolCallProps) {
           </Show>
           <Show when={hasOutput && isOpen()}>
             <div class="tool-output-container">
-              <pre class="tool-output">{state.error || state.output}</pre>
+              <Show when={isEditTool && hasDiff} fallback={
+                <pre class="tool-output">{state.error || state.output}</pre>
+              }>
+                <DiffViewer diff={state.metadata?.diff || ""} />
+                <Show when={state.output}>
+                  <pre class="tool-output">{state.output}</pre>
+                </Show>
+              </Show>
             </div>
           </Show>
         </div>
