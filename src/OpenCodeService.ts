@@ -74,11 +74,14 @@ export class OpenCodeService {
         process.chdir(workspaceRoot as string);
       }
 
+      console.log("Starting OpenCode server...");
+
       // Create OpenCode instance with server and client
       // Don't pass config here - let OpenCode load it from the workspace directory
       this.opencode = await createOpencode({
         hostname: "127.0.0.1",
         port: 0, // Let it choose a random available port
+        timeout: 15000, // Give server 15 seconds to start (default is 5s)
       });
 
       console.log(`OpenCode server started at ${this.opencode.server.url}`);
