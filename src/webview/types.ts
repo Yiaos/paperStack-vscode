@@ -112,4 +112,5 @@ export type WebviewMessage =
   | { type: "create-session"; title?: string }
   | { type: "permission-response"; sessionId: string; permissionId: string; response: "once" | "always" | "reject" }
   | { type: "cancel-session" }
-  | { type: "agent-changed"; agent: string };
+  | { type: "agent-changed"; agent: string }
+  | { type: "edit-previous-message"; sessionId: string; messageId: string; newText: string; agent: string | null };

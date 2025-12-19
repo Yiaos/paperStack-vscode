@@ -149,8 +149,8 @@
     rgba(191, 191, 191, 0.4)
   );
 
-  /* Card background - 20% darker than sidebar for tool calls etc */
-  --card-background: color-mix(in oklch, var(--sidebar-background) 90%, black);
+  /* Card background - relative lightness reduction for perceptual consistency */
+  --card-background: oklch(from var(--sidebar-background) calc(l * 0.98) c h);
 
   /* Fonts */
   --font-family: var(
@@ -1210,4 +1210,73 @@ body.vscode-high-contrast {
 
 .diff-line-content {
   flex: 1;
+}
+
+/* Message wrapper for editing state */
+.message-wrapper {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.message-wrapper--dimmed {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Editable User Message */
+.editable-message {
+  padding: var(--spacing-sm);
+  background-color: var(--input-background);
+  border: 1px solid var(--focus-border-color);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  cursor: text;
+}
+
+.editable-message__input {
+  width: 100%;
+  min-height: 36px;
+  max-height: 200px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--input-foreground);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 20px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.editable-message__input:focus {
+  outline: none;
+}
+
+.editable-message__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.editable-message__cancel {
+  padding: var(--padding-button);
+  border: none;
+  border-radius: 3px;
+  background-color: transparent;
+  color: var(--description-foreground);
+  font-family: var(--font-family);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  line-height: 1;
+  user-select: none;
+}
+
+.editable-message__cancel:hover {
+  color: var(--foreground);
+  background-color: var(--hover-background);
 }

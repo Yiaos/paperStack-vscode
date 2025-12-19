@@ -70,6 +70,9 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
           case 'agent-changed':
             await this._handleAgentChanged(message.agent);
             return;
+          case 'edit-previous-message':
+            await this._handleEditPreviousMessage(message.sessionId, message.messageId, message.newText, message.agent);
+            return;
         }
       }
     );
@@ -248,6 +251,63 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private async _handleEditPreviousMessage(sessionId: string, messageId: string, newText: string, agent?: string) {
+    const logger = getLogger();
+    logger.info('[ViewProvider] Handling edit previous message:', { sessionId, messageId, newText: newText.substring(0, 50) });
+
+    try {
+      // Send thinking state
+      this._sendMessage({ type: 'thinking', isThinking: true });
+
+      // Revert to before the message being edited
+      await this._openCodeService.revertToMessage(sessionId, messageId);
+      logger.info('[ViewProvider] Session reverted successfully');
+
+      // Update the active session
+      this._activeSessionId = sessionId;
+
+      // Reload messages after revert to get the updated state
+      const messages = await this._openCodeService.getMessages(sessionId);
+      this._sendMessage({
+        type: 'session-switched',
+        sessionId,
+        title: this._openCodeService.getCurrentSessionTitle(),
+        messages
+      });
+
+      // Now send the new prompt
+      await this._openCodeService.sendPromptStreaming(
+        newText,
+        (event) => this._handleStreamEvent(event),
+        sessionId,
+        agent
+      );
+
+      this._sendMessage({ type: 'thinking', isThinking: false });
+
+      // Update session title if needed
+      try {
+        const session = await this._openCodeService.switchSession(sessionId);
+        if (session.title) {
+          this._sendMessage({
+            type: 'session-title-update',
+            sessionId: session.id,
+            title: session.title
+          });
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    } catch (error) {
+      logger.error('[ViewProvider] Error editing previous message:', error);
+      this._sendMessage({
+        type: 'error',
+        message: `Failed to edit message: ${(error as Error).message}`
+      });
+      this._sendMessage({ type: 'thinking', isThinking: false });
+    }
+  }
+
   private async _handleCancelSession() {
     const sessionId = this._activeSessionId || this._openCodeService.getCurrentSessionId();
     if (!sessionId) {
@@ -347,7 +407,17 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
 
     console.log('[ViewProvider] Stream event:', event.type);
     
-    if (event.type === 'message.part.updated') {
+    if (event.type === 'message.removed') {
+      const messageID = (event as any).properties?.messageID;
+      console.log('[ViewProvider] Message removed:', messageID);
+      
+      // Forward message removal to webview
+      this._sendMessage({
+        type: 'message-removed',
+        messageId: messageID,
+        sessionId: evSessionId
+      });
+    } else if (event.type === 'message.part.updated') {
       const part = event.properties.part;
       console.log('[ViewProvider] Sending part-update to webview:', {
         partId: part.id,

@@ -33,6 +33,10 @@ function App() {
   // Pending permissions are tracked separately from tool parts
   // Key is either callID (preferred) or permissionID as fallback
   const [pendingPermissions, setPendingPermissions] = createSignal<Map<string, Permission>>(new Map());
+  
+  // Editing state for previous messages
+  const [editingMessageId, setEditingMessageId] = createSignal<string | null>(null);
+  const [editingText, setEditingText] = createSignal<string>("");
 
   // Get the current session key for drafts/agents
   const sessionKey = () => currentSessionId() || NEW_SESSION_KEY;
@@ -161,6 +165,11 @@ function App() {
         });
       }
       setMessages((prev) => applyMessageUpdate(prev, finalMessage));
+    },
+
+    onMessageRemoved: (messageId) => {
+      console.log('[Webview] message-removed received:', messageId);
+      setMessages((prev) => prev.filter(m => m.id !== messageId));
     },
 
     onResponse: (payload) => {
@@ -325,6 +334,46 @@ function App() {
     }
   };
 
+  const handleStartEdit = (messageId: string, text: string) => {
+    setEditingMessageId(messageId);
+    setEditingText(text);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
+  const handleSubmitEdit = (newText: string) => {
+    const messageId = editingMessageId();
+    const sessionId = currentSessionId();
+    
+    if (!messageId || !sessionId || !newText.trim()) return;
+    
+    const agent = agents().some(a => a.name === selectedAgent()) 
+      ? selectedAgent() 
+      : null;
+    
+    // Optimistically truncate messages to the point being edited (exclusive)
+    // This prevents the UI from showing old messages while the backend reverts
+    const messageIndex = messages().findIndex(m => m.id === messageId);
+    if (messageIndex !== -1) {
+      setMessages(messages().slice(0, messageIndex));
+    }
+    
+    send({
+      type: "edit-previous-message",
+      sessionId,
+      messageId,
+      newText: newText.trim(),
+      agent,
+    });
+    
+    // Clear editing state
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
   const handlePermissionResponse = (permissionId: string, response: "once" | "always" | "reject") => {
     console.log(`[App] Permission response clicked: ${response} for ${permissionId}`);
     
@@ -403,7 +452,19 @@ function App() {
         />
       </Show>
 
-      <MessageList messages={messages()} isThinking={isThinking()} workspaceRoot={workspaceRoot()} pendingPermissions={pendingPermissions()} onPermissionResponse={handlePermissionResponse} />
+      <MessageList 
+        messages={messages()} 
+        isThinking={isThinking()} 
+        workspaceRoot={workspaceRoot()} 
+        pendingPermissions={pendingPermissions()} 
+        onPermissionResponse={handlePermissionResponse}
+        editingMessageId={editingMessageId()}
+        editingText={editingText()}
+        onStartEdit={handleStartEdit}
+        onCancelEdit={handleCancelEdit}
+        onSubmitEdit={handleSubmitEdit}
+        onEditTextChange={setEditingText}
+      />
 
       <Show when={hasMessages()}>
         <div class="input-divider" />

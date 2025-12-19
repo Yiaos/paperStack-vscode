@@ -443,6 +443,26 @@ export class OpenCodeService {
     debugLog('[respondToPermission] Success');
   }
 
+  async revertToMessage(sessionId: string, messageId: string): Promise<Session> {
+    if (!this.opencode) {
+      throw new Error("OpenCode not initialized");
+    }
+
+    debugLog(`[revertToMessage] Reverting session ${sessionId} to before message ${messageId}`);
+
+    const result = await this.opencode.client.session.revert({
+      path: { id: sessionId },
+      body: { messageID: messageId },
+    });
+
+    if (result.error) {
+      throw new Error(`Failed to revert: ${JSON.stringify(result.error)}`);
+    }
+
+    debugLog(`[revertToMessage] Session ${sessionId} reverted successfully`);
+    return result.data as Session;
+  }
+
   async abortSession(sessionId?: string): Promise<void> {
     if (!this.opencode) {
       throw new Error("OpenCode not initialized");

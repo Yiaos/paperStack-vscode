@@ -10,6 +10,7 @@ export interface VsCodeBridgeCallbacks {
   onThinking: (isThinking: boolean) => void;
   onPartUpdate: (part: MessagePart & { messageID: string }) => void;
   onMessageUpdate: (message: IncomingMessage) => void;
+  onMessageRemoved: (messageId: string) => void;
   onResponse: (payload: { text?: string; parts?: MessagePart[] }) => void;
   onError: (message: string) => void;
   onSessionList: (sessions: Session[]) => void;
@@ -47,6 +48,11 @@ export function useVsCodeBridge(callbacks: VsCodeBridgeCallbacks) {
         case "message-update": {
           const { message: finalMessage } = message;
           callbacks.onMessageUpdate(finalMessage);
+          break;
+        }
+
+        case "message-removed": {
+          callbacks.onMessageRemoved(message.messageId);
           break;
         }
 
