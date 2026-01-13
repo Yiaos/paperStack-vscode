@@ -1,6 +1,7 @@
 # AGENTS.md
 
 ## Commands
+
 - **Build**: `pnpm build` (builds extension + webview)
 - **Watch**: `pnpm watch` (dev mode with hot reload)
 - **Test**: `pnpm test` (runs vitest)
@@ -9,11 +10,14 @@
 - **UI Kit**: `pnpm uikit` (opens component playground)
 
 ## Architecture
+
 VSCode extension with SolidJS webview. Two build targets:
+
 - **Extension** (`src/extension.ts`, `OpenCodeService.ts`, `OpenCodeViewProvider.ts`) - VSCode extension host
 - **Webview** (`src/webview/`) - SolidJS chat UI communicating via `@opencode-ai/sdk`
 
 ## Code Style
+
 - TypeScript with strict mode, no `any` types
 - SolidJS for webview components (signals, createMemo, Show/For)
 - Functional components with hooks in `src/webview/hooks/`
