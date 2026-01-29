@@ -41,7 +41,7 @@ export const MessageSchema = z.object({
   id: z.string(),
   type: z.enum(["user", "assistant"]),
   text: z.string().optional(),
-  parts: z.array(MessagePartSchema).optional(),
+  // Note: parts are stored separately in store.part[messageID], not on Message
 });
 export type Message = z.infer<typeof MessageSchema>;
 
@@ -167,6 +167,14 @@ export const HostMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("sseClosed"),
     id: z.string(),
+  }),
+  z.object({
+    type: z.literal("sseStatus"),
+    id: z.string(),
+    status: z.enum(["connecting", "connected", "reconnecting", "closed"]),
+    attempt: z.number().optional(),
+    nextRetryMs: z.number().optional(),
+    reason: z.enum(["aborted", "error", "manual"]).optional(),
   }),
   z.object({
     type: z.literal("editor-selection"),

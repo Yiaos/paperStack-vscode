@@ -65,12 +65,13 @@
     "dev": "vite",
     "dev:standalone": "vite --open /src/webview/standalone.html",
     "uikit": "vite --open /src/webview/uikit.html",
-    "test": "vitest run",
+    "test": "vitest run && playwright test",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "demo:standalone": "./scripts/demo-standalone.sh",
     "package": "vsce package",
     "publish": "vsce publish --skip-duplicate --no-dependencies && source .env && ovsx publish -p \"$OPEN_VSX_KEY\" --no-dependencies",
+    "publish:pre": "vsce publish --pre-release --no-dependencies && source .env && ovsx publish --pre-release -p \"$OPEN_VSX_KEY\" --no-dependencies",
     "google-login": "gcloud auth application-default login"
   },
   "devDependencies": {

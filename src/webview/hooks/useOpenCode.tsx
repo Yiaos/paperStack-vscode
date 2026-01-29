@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup } from "solid-js";
+import { createSignal, onMount, onCleanup, createContext, useContext, type ParentProps } from "solid-js";
 import {
   createOpencodeClient,
   type OpencodeClient,
@@ -21,6 +21,13 @@ import { proxyEventSource } from "../utils/proxyEventSource";
 export type { Event, Agent, Session, SDKMessage, Part };
 export type PromptPartInput = TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput;
 
+export type SSEStatus = {
+  status: "connecting" | "connected" | "reconnecting" | "closed";
+  attempt?: number;
+  nextRetryMs?: number;
+  reason?: "aborted" | "error" | "manual";
+};
+
 interface GlobalConfig {
   serverUrl: string;
   workspaceRoot?: string;
@@ -33,7 +40,7 @@ export interface InitData {
   defaultAgent?: string;
 }
 
-export function useOpenCode() {
+function createOpenCode() {
   const [client, setClient] = createSignal<OpencodeClient | null>(null);
   const [isReady, setIsReady] = createSignal(false);
   const [workspaceRoot, setWorkspaceRoot] = createSignal<string | undefined>(undefined);
@@ -108,11 +115,13 @@ export function useOpenCode() {
   });
 
   // High-level helper to send a prompt
+  // Accepts optional messageID for idempotent sends
   async function sendPrompt(
     sessionId: string,
     text: string,
     agent?: string | null,
-    extraParts: PromptPartInput[] = []
+    extraParts: PromptPartInput[] = [],
+    messageID?: string
   ) {
     const c = client();
     if (!c) throw new Error("Not connected");
@@ -127,13 +136,17 @@ export function useOpenCode() {
         model: { providerID, modelID },
         parts: [{ type: "text", text }, ...extraParts],
         ...(agent ? { agent } : {}),
+        ...(messageID ? { messageID } : {}),
       },
     });
   }
 
   // Subscribe to events for the workspace through the extension proxy
   // (native EventSource has CORS issues in webview)
-  function subscribeToEvents(onEvent: (event: Event) => void): () => void {
+  function subscribeToEvents(
+    onEvent: (event: Event) => void,
+    onStatus?: (status: SSEStatus) => void
+  ): () => void {
     const baseUrl = serverUrl();
     const dir = workspaceRoot();
     if (!baseUrl) throw new Error("Not connected");
@@ -155,7 +168,8 @@ export function useOpenCode() {
       },
       (err) => {
         console.error("[SSE] EventSource error:", err);
-      }
+      },
+      onStatus
     );
   }
 
@@ -210,4 +224,18 @@ export function useOpenCode() {
     respondToPermission,
     revertToMessage,
   };
+}
+
+// Context
+const OpenCodeContext = createContext<ReturnType<typeof createOpenCode>>();
+
+export function OpenCodeProvider(props: ParentProps) {
+  const value = createOpenCode();
+  return <OpenCodeContext.Provider value={value}>{props.children}</OpenCodeContext.Provider>;
+}
+
+export function useOpenCode() {
+  const context = useContext(OpenCodeContext);
+  if (!context) throw new Error("useOpenCode must be used within OpenCodeProvider");
+  return context;
 }

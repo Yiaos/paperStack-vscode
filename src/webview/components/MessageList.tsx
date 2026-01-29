@@ -4,6 +4,7 @@ import type { Message, Permission } from "../types";
 import { MessageItem } from "./MessageItem";
 import { EditableUserMessage } from "./EditableUserMessage";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { useSync } from "../state/sync";
 
 interface MessageListProps {
   messages: Message[];
@@ -21,6 +22,7 @@ interface MessageListProps {
 }
 
 export function MessageList(props: MessageListProps) {
+  const sync = useSync();
   let containerRef!: HTMLDivElement;
   let contentRef!: HTMLDivElement;
   
@@ -99,10 +101,11 @@ export function MessageList(props: MessageListProps) {
     const last = msgs[msgs.length - 1];
     
     // Build a signature that changes when streaming updates arrive
+    const lastParts = last ? sync.getParts(last.id) : [];
     const sig = !last
       ? ""
-      : last.parts?.length
-      ? last.parts
+      : lastParts.length
+      ? lastParts
           .map(
             (p) =>
               `${p.id}:${p.type}:${p.text?.length ?? 0}:${p.state?.status ?? ""}:${
@@ -123,6 +126,14 @@ export function MessageList(props: MessageListProps) {
   createEffect(
     on(
       () => props.isThinking,
+      () => scheduleAutoScroll()
+    )
+  );
+
+  // Handle session error appearing/disappearing
+  createEffect(
+    on(
+      () => props.sessionError,
       () => scheduleAutoScroll()
     )
   );
@@ -155,8 +166,9 @@ export function MessageList(props: MessageListProps) {
             // Get the text content of the message for editing
             const messageText = () => {
               if (message.text) return message.text;
-              if (message.parts) {
-                return message.parts
+              const msgParts = sync.getParts(message.id);
+              if (msgParts.length > 0) {
+                return msgParts
                   .filter(
                     (p) =>
                       p.type === "text" &&
@@ -206,7 +218,7 @@ export function MessageList(props: MessageListProps) {
         <ThinkingIndicator when={props.isThinking} />
         
         <Show when={props.sessionError}>
-          <div class="session-error">
+          <div class="session-error" role="alert">
             {props.sessionError}
           </div>
         </Show>
