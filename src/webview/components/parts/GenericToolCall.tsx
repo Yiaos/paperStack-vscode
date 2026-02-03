@@ -1,13 +1,13 @@
-import { createMemo } from "solid-js";
-import type { MessagePart, Permission } from "../../types";
+import { createMemo, type Accessor } from "solid-js";
+import type { MessagePart, Permission, ToolState } from "../../types";
 import { ToolCallTemplate } from "./ToolCallTemplate";
 import { GenericToolIcon } from "./ToolCallIcons";
-import { usePermission, ErrorFooter, type ToolState } from "./ToolCallHelpers";
+import { usePermission, ErrorFooter } from "./ToolCallHelpers";
 
 interface GenericToolCallProps {
   part: MessagePart;
   workspaceRoot?: string;
-  pendingPermissions?: Map<string, Permission>;
+  pendingPermissions?: Accessor<Map<string, Permission>>;
   onPermissionResponse?: (
     permissionId: string,
     response: "once" | "always" | "reject",
@@ -18,7 +18,9 @@ export function GenericToolCall(props: GenericToolCallProps) {
   const state = () => props.part.state as ToolState;
   const tool = () => props.part.tool as string;
 
-  const permission = usePermission(props.part, props.pendingPermissions);
+  const permission = usePermission(props.part, () =>
+    props.pendingPermissions?.(),
+  );
 
   // Convert tool name to action form: "web_search" -> "Web searching"
   const displayText = createMemo(() => {

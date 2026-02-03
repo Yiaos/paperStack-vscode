@@ -1,12 +1,13 @@
-import type { MessagePart, Permission } from "../../types";
+import type { Accessor } from "solid-js";
+import type { MessagePart, Permission, ToolState } from "../../types";
 import { ToolCallTemplate } from "./ToolCallTemplate";
 import { GlobeIcon } from "./ToolCallIcons";
-import { getToolInputs, usePermission, ErrorFooter, type ToolState } from "./ToolCallHelpers";
+import { getToolInputs, usePermission, ErrorFooter } from "./ToolCallHelpers";
 
 interface WebfetchToolCallProps {
   part: MessagePart;
   workspaceRoot?: string;
-  pendingPermissions?: Map<string, Permission>;
+  pendingPermissions?: Accessor<Map<string, Permission>>;
   onPermissionResponse?: (
     permissionId: string,
     response: "once" | "always" | "reject",
@@ -17,7 +18,9 @@ export function WebfetchToolCall(props: WebfetchToolCallProps) {
   const state = () => props.part.state as ToolState;
   const inputs = () => getToolInputs(state(), props.part);
 
-  const permission = usePermission(props.part, props.pendingPermissions);
+  const permission = usePermission(props.part, () =>
+    props.pendingPermissions?.(),
+  );
 
   const Header = () => (
     <span class="tool-header-text">

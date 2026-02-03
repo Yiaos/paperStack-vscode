@@ -1,13 +1,13 @@
-import { createMemo } from "solid-js";
-import type { MessagePart, Permission } from "../../types";
+import { createMemo, type Accessor } from "solid-js";
+import type { MessagePart, Permission, ToolState } from "../../types";
 import { ToolCallTemplate } from "./ToolCallTemplate";
 import { FolderIcon } from "./ToolCallIcons";
-import { getToolInputs, toRelativePath, usePermission, ErrorFooter, type ToolState } from "./ToolCallHelpers";
+import { getToolInputs, toRelativePath, usePermission, ErrorFooter } from "./ToolCallHelpers";
 
 interface ListToolCallProps {
   part: MessagePart;
   workspaceRoot?: string;
-  pendingPermissions?: Map<string, Permission>;
+  pendingPermissions?: Accessor<Map<string, Permission>>;
   onPermissionResponse?: (
     permissionId: string,
     response: "once" | "always" | "reject",
@@ -22,7 +22,9 @@ export function ListToolCall(props: ListToolCallProps) {
     toRelativePath(inputs().path as string, props.workspaceRoot),
   );
 
-  const permission = usePermission(props.part, props.pendingPermissions);
+  const permission = usePermission(props.part, () =>
+    props.pendingPermissions?.(),
+  );
 
   const Header = () => (
     <span class="tool-header-text">

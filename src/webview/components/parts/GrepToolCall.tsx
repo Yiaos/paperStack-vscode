@@ -1,13 +1,13 @@
-import { Show, createMemo } from "solid-js";
-import type { MessagePart, Permission } from "../../types";
+import { Show, createMemo, type Accessor } from "solid-js";
+import type { MessagePart, Permission, ToolState } from "../../types";
 import { ToolCallTemplate } from "./ToolCallTemplate";
 import { MagnifyingGlassIcon } from "./ToolCallIcons";
-import { getToolInputs, usePermission, ErrorFooter, type ToolState } from "./ToolCallHelpers";
+import { getToolInputs, usePermission, ErrorFooter } from "./ToolCallHelpers";
 
 interface GrepToolCallProps {
   part: MessagePart;
   workspaceRoot?: string;
-  pendingPermissions?: Map<string, Permission>;
+  pendingPermissions?: Accessor<Map<string, Permission>>;
   onPermissionResponse?: (
     permissionId: string,
     response: "once" | "always" | "reject",
@@ -27,7 +27,9 @@ export function GrepToolCall(props: GrepToolCallProps) {
     return lines.length;
   });
 
-  const permission = usePermission(props.part, props.pendingPermissions);
+  const permission = usePermission(props.part, () =>
+    props.pendingPermissions?.(),
+  );
 
   const Header = () => (
     <>

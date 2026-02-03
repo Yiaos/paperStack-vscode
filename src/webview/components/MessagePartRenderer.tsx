@@ -1,4 +1,5 @@
 
+import type { Accessor } from "solid-js";
 import type { MessagePart, Permission } from "../types";
 import { TextBlock } from "./parts/TextBlock";
 import { ReasoningBlock } from "./parts/ReasoningBlock";
@@ -10,16 +11,15 @@ const HIDDEN_SUBAGENT_TYPES = new Set(["compaction", "title", "summary"]);
 interface MessagePartRendererProps {
   part: MessagePart;
   workspaceRoot?: string;
-  pendingPermissions?: Map<string, Permission>;
+  pendingPermissions?: Accessor<Map<string, Permission>>;
   onPermissionResponse?: (permissionId: string, response: "once" | "always" | "reject") => void;
   isStreaming?: boolean;
 }
 
 function isHiddenSystemTask(part: MessagePart): boolean {
   if (part.type !== "tool") return false;
-  const toolPart = part as MessagePart & { tool?: string; state?: { input?: Record<string, unknown> } };
-  if (toolPart.tool !== "task") return false;
-  const subagentType = toolPart.state?.input?.subagent_type as string | undefined;
+  if (part.tool !== "task") return false;
+  const subagentType = part.state?.input?.subagent_type as string | undefined;
   return !!subagentType && HIDDEN_SUBAGENT_TYPES.has(subagentType);
 }
 
