@@ -5,12 +5,15 @@ import type {
   Session as SDKSession,
   Message as SDKMessage,
   Part as SDKPart,
-} from "@opencode-ai/sdk/client";
+  AssistantMessage,
+  PermissionRequest as SDKPermission,
+} from "@opencode-ai/sdk/v2/client";
 import type {
   Message,
   MessagePart,
   Session,
   Agent,
+  Permission,
   ContextInfo,
   FileChangesInfo,
 } from "../types";
@@ -18,18 +21,21 @@ import type { SyncState } from "./types";
 import { extractTextFromParts } from "./utils";
 
 /** API response for session.messages endpoint */
-interface MessagesResponse {
-  info?: SDKMessage;
-  parts?: SDKPart[];
+interface MessageWithParts {
+  info: SDKMessage;
+  parts: SDKPart[];
 }
 
 export interface BootstrapContext {
   client: {
     app: { agents: () => Promise<{ data?: SDKAgent[] }> };
     session: {
-      list: (opts?: { query?: { directory?: string } }) => Promise<{ data?: SDKSession[] }>;
-      messages: (opts: { path: { id: string } }) => Promise<{ data?: MessagesResponse[] }>;
-      get: (opts: { path: { id: string } }) => Promise<{ data?: SDKSession }>;
+      list: (opts?: { directory?: string }) => Promise<{ data?: SDKSession[] }>;
+      messages: (opts: { sessionID: string }) => Promise<{ data?: MessageWithParts[] }>;
+      get: (opts: { sessionID: string }) => Promise<{ data?: SDKSession }>;
+    };
+    permission: {
+      list: (opts?: { directory?: string }) => Promise<{ data?: any[] }>;
     };
   };
   sessionId: string | null;
@@ -41,6 +47,7 @@ export interface BootstrapResult {
   sessions: Session[];
   messageList: Message[];
   partMap: { [messageID: string]: MessagePart[] };
+  permissionMap: { [sessionID: string]: Permission[] };
   contextInfo: ContextInfo | null;
   fileChanges: FileChangesInfo | null;
 }
@@ -66,7 +73,12 @@ function toSession(sdkSession: SDKSession): Session {
     parentID: sdkSession.parentID,
     time: sdkSession.time,
     summary: sdkSession.summary
-      ? { diffs: sdkSession.summary.diffs ?? [] }
+      ? { 
+          additions: sdkSession.summary.additions,
+          deletions: sdkSession.summary.deletions,
+          files: sdkSession.summary.files,
+          diffs: sdkSession.summary.diffs 
+        }
       : undefined,
   };
 }
@@ -74,6 +86,19 @@ function toSession(sdkSession: SDKSession): Session {
 /** Convert SDK Part to internal MessagePart type */
 function toPart(sdkPart: SDKPart): MessagePart {
   return sdkPart as MessagePart;
+}
+
+/** Convert SDK Permission to internal Permission type */
+function toPermission(sdkPerm: SDKPermission): Permission {
+  return {
+    id: sdkPerm.id,
+    permission: sdkPerm.permission,
+    patterns: sdkPerm.patterns,
+    sessionID: sdkPerm.sessionID,
+    metadata: sdkPerm.metadata ?? {},
+    always: sdkPerm.always,
+    tool: sdkPerm.tool,
+  };
 }
 
 // System agents that should be hidden from the UI
@@ -84,7 +109,7 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
 
   const [agentsRes, sessionsRes] = await Promise.all([
     client.app.agents(),
-    client.session.list(workspaceRoot ? { query: { directory: workspaceRoot } } : undefined),
+    client.session.list(workspaceRoot ? { directory: workspaceRoot } : undefined),
   ]);
 
   const agents = (agentsRes?.data ?? [])
@@ -102,20 +127,40 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
   let contextInfo: ContextInfo | null = null;
   let fileChanges: FileChangesInfo | null = null;
   const partMap: { [messageID: string]: MessagePart[] } = {};
+  const permissionMap: { [sessionID: string]: Permission[] } = {};
+
+  // Fetch pending permissions
+  try {
+    const permissionsRes = await client.permission.list(
+      workspaceRoot ? { directory: workspaceRoot } : undefined
+    );
+    const permissions = permissionsRes?.data ?? [];
+    
+    // Group permissions by sessionID
+    for (const sdkPerm of permissions) {
+      const perm = toPermission(sdkPerm as SDKPermission);
+      if (!permissionMap[perm.sessionID]) {
+        permissionMap[perm.sessionID] = [];
+      }
+      permissionMap[perm.sessionID].push(perm);
+    }
+  } catch (err) {
+    console.error("[Sync] Failed to load permissions during bootstrap:", err);
+  }
 
   if (sessionId) {
     try {
       const [messagesRes, sessionRes] = await Promise.all([
-        client.session.messages({ path: { id: sessionId } }),
-        client.session.get({ path: { id: sessionId } }),
+        client.session.messages({ sessionID: sessionId }),
+        client.session.get({ sessionID: sessionId }),
       ]);
 
       const rawMessages = messagesRes?.data ?? [];
 
       messageList = rawMessages
         .map((raw) => {
-          const msgInfo = raw.info ?? (raw as unknown as SDKMessage);
-          const parts = raw.parts ?? [];
+          const msgInfo = raw.info;
+          const parts = raw.parts;
           const text = extractTextFromParts(parts.map(toPart));
           const messageId = msgInfo.id;
           const role = msgInfo.role;
@@ -125,8 +170,7 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
           if (role === "user") {
             normalizedParts = parts.filter((p) => {
               if (p.type !== "text") return true;
-              const textPart = p as SDKPart & { synthetic?: boolean; ignored?: boolean };
-              return !textPart.synthetic && !textPart.ignored;
+              return !p.synthetic && !p.ignored;
             });
           }
 
@@ -147,39 +191,48 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
         .sort((a, b) => a.id.localeCompare(b.id));
 
       const session = sessionRes?.data;
-      if (session?.summary?.diffs) {
-        const diffs = session.summary.diffs;
-        fileChanges = {
-          fileCount: diffs.length,
-          additions: diffs.reduce((sum, d) => sum + (d.additions || 0), 0),
-          deletions: diffs.reduce((sum, d) => sum + (d.deletions || 0), 0),
-        };
+      
+      // Extract file changes from session summary
+      if (session?.summary) {
+        if (session.summary.diffs && session.summary.diffs.length > 0) {
+          // Use detailed diffs if available
+          const diffs = session.summary.diffs;
+          fileChanges = {
+            fileCount: diffs.length,
+            additions: diffs.reduce((sum, d) => sum + (d.additions || 0), 0),
+            deletions: diffs.reduce((sum, d) => sum + (d.deletions || 0), 0),
+          };
+        } else if (session.summary.files > 0) {
+          // Fallback to summary-level aggregates
+          fileChanges = {
+            fileCount: session.summary.files,
+            additions: session.summary.additions,
+            deletions: session.summary.deletions,
+          };
+        }
       }
 
       // Extract context info from the last assistant message
-      const lastAssistant = [...rawMessages].reverse().find((raw) => {
-        const msgInfo = raw.info ?? (raw as unknown as SDKMessage);
-        return msgInfo.role === "assistant";
-      });
+      const lastAssistant = [...rawMessages]
+        .reverse()
+        .find((raw) => raw.info.role === "assistant");
 
-      if (lastAssistant) {
-        const msgInfo = lastAssistant.info ?? (lastAssistant as unknown as SDKMessage);
-        // AssistantMessage has tokens field
-        const assistantMsg = msgInfo as SDKMessage & {
-          tokens?: { input?: number; output?: number; cache?: { read?: number } };
-        };
-        if (assistantMsg.tokens) {
-          const tokens = assistantMsg.tokens;
-          const usedTokens =
-            (tokens.input || 0) + (tokens.output || 0) + (tokens.cache?.read || 0);
-          if (usedTokens > 0) {
-            const limit = 200000;
-            contextInfo = {
-              usedTokens,
-              limitTokens: limit,
-              percentage: Math.min(100, (usedTokens / limit) * 100),
-            };
-          }
+      if (lastAssistant && lastAssistant.info.role === "assistant") {
+        const assistantMsg = lastAssistant.info as AssistantMessage;
+        const tokens = assistantMsg.tokens;
+        const usedTokens =
+          tokens.input + 
+          tokens.output + 
+          tokens.reasoning +
+          tokens.cache.read + 
+          tokens.cache.write;
+        if (usedTokens > 0) {
+          const limit = 200000;
+          contextInfo = {
+            usedTokens,
+            limitTokens: limit,
+            percentage: Math.min(100, (usedTokens / limit) * 100),
+          };
         }
       }
     } catch (err) {
@@ -187,7 +240,7 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
     }
   }
 
-  return { agents, sessions, messageList, partMap, contextInfo, fileChanges };
+  return { agents, sessions, messageList, partMap, permissionMap, contextInfo, fileChanges };
 }
 
 export function commitBootstrapData(
@@ -202,7 +255,7 @@ export function commitBootstrapData(
       setStore("message", sessionId, data.messageList);
     }
     setStore("part", reconcile(data.partMap));
-    setStore("permission", {});
+    setStore("permission", reconcile(data.permissionMap));
     setStore("contextInfo", data.contextInfo);
     setStore("fileChanges", data.fileChanges);
     setStore("status", { status: "connected" });

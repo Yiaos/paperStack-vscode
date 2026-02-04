@@ -1,13 +1,13 @@
-import { Show } from "solid-js";
-import type { MessagePart, Permission } from "../../types";
+import { Show, type Accessor } from "solid-js";
+import type { MessagePart, Permission, ToolState } from "../../types";
 import { ToolCallTemplate } from "./ToolCallTemplate";
 import { GenericToolIcon } from "./ToolCallIcons";
-import { getToolInputs, usePermission, ErrorFooter, type ToolState } from "./ToolCallHelpers";
+import { getToolInputs, usePermission, ErrorFooter } from "./ToolCallHelpers";
 
 interface TaskToolCallProps {
   part: MessagePart;
   workspaceRoot?: string;
-  pendingPermissions?: Map<string, Permission>;
+  pendingPermissions?: Accessor<Map<string, Permission>>;
   onPermissionResponse?: (
     permissionId: string,
     response: "once" | "always" | "reject",
@@ -18,12 +18,17 @@ export function TaskToolCall(props: TaskToolCallProps) {
   const state = () => props.part.state as ToolState;
   const inputs = () => getToolInputs(state(), props.part);
 
-  const permission = usePermission(props.part, props.pendingPermissions);
+  const permission = usePermission(props.part, () =>
+    props.pendingPermissions?.(),
+  );
 
   const isPending = () => props.part.state?.status === "pending";
 
   const description = () => inputs().description as string | undefined;
-  const subagentType = () => inputs().subagent_type as string | undefined;
+  const subagentType = () => {
+    const type = inputs().subagent_type as string | undefined;
+    return type ? type.charAt(0).toUpperCase() + type.slice(1) : undefined;
+  };
   const mainText = () => state().title || description() || (isPending() ? "Running task" : "Task");
 
   const Header = () => (

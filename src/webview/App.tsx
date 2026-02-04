@@ -7,13 +7,12 @@ import { FileChangesSummary } from "./components/FileChangesSummary";
 import { PermissionPrompt } from "./components/PermissionPrompt";
 import { useOpenCode, type PromptPartInput } from "./hooks/useOpenCode";
 import { useSync } from "./state/sync";
-import type { FilePartInput } from "@opencode-ai/sdk/client";
+import type { FilePartInput } from "@opencode-ai/sdk/v2/client";
 import type { Message, Agent, Session, Permission, FileChangesInfo, MessagePart } from "./types";
 import { parseHostMessage } from "./types";
 
 export interface QueuedMessage {
   id: string;
-  messageID: string; // Client-generated messageID for idempotent sends
   text: string;
   agent: string | null;
   attachments: SelectionAttachment[];
@@ -112,7 +111,7 @@ function App() {
   const messages = () => sync.messages();
   const agents = () => sync.agents();
   const sessions = () => sync.sessions();
-  const pendingPermissions = () => sync.permissions();
+  const pendingPermissions = () => sync.aggregatedPermissions();
   const contextInfo = () => sync.contextInfo();
   const fileChanges = () => sync.fileChanges();
   const isThinking = () => sync.isThinking();
@@ -199,50 +198,14 @@ function App() {
     messages().some((m) => m.type === "user" || m.type === "assistant")
   );
 
-  // Find permissions that don't have matching tool calls (standalone permissions)
+  // Find permissions that should show as standalone modals (not inline with tools)
   const standalonePermissions = createMemo(() => {
-    const perms = pendingPermissions();
-    const msgs = messages();
     const result: Permission[] = [];
-    
-    console.log("[App] standalonePermissions check:", {
-      pendingPermissionsCount: perms.size,
-      permissions: Array.from(perms.entries()).map(([k, p]) => ({ 
-        key: k, 
-        id: p.id, 
-        permission: p.permission, 
-        toolCallID: p.tool?.callID 
-      })),
-    });
-    
-    // Collect all callIDs from tool parts in messages
-    const toolCallIDs = new Set<string>();
-    for (const msg of msgs) {
-      const msgParts = sync.getParts(msg.id);
-      for (const part of msgParts) {
-        if (part.type === "tool" && part.callID) {
-          toolCallIDs.add(part.callID);
-        }
+    for (const [, perm] of pendingPermissions().entries()) {
+      if (!perm.tool) {
+        result.push(perm);
       }
     }
-    
-    console.log("[App] toolCallIDs found:", Array.from(toolCallIDs));
-    
-    // Find permissions that don't match any tool call
-    // Since we now tie permissions to tool calls via tool.callID,
-    // all permissions should show up in their respective tool calls
-    // So standalone permissions are now rare/unused
-    for (const [key, perm] of perms.entries()) {
-      if (perm.tool?.callID && toolCallIDs.has(perm.tool.callID)) {
-        // This permission has a matching tool call, skip it
-        console.log("[App] Skipping permission with matching tool call:", perm.id, perm.tool.callID);
-        continue;
-      }
-      console.log("[App] Found standalone permission:", perm.id, perm.permission, perm.tool?.callID);
-      result.push(perm);
-    }
-    
-    console.log("[App] Standalone permissions result:", result.length);
     return result;
   });
 
@@ -319,21 +282,21 @@ function App() {
     }
   });
   
-  // Process queued messages when thinking stops
-  createEffect(() => {
-    if (!isThinking()) {
-      processNextQueuedMessage();
-    }
-  });
-  
-  // Clear inFlightMessage when session becomes idle (response complete)
+  // Clear inFlightMessage when session becomes idle and trigger queue drain
   onMount(() => {
     const cleanup = sync.onSessionIdle((sessionId) => {
       const inflight = inFlightMessage();
-      if (inflight && inflight.sessionId === sessionId) {
-        console.log("[App] session.idle received, clearing inFlightMessage");
-        setInFlightMessage(null);
+      
+      if (inflight?.sessionId !== sessionId) {
+        return;
       }
+      
+      setInFlightMessage(null);
+      
+      // Schedule queue drain in a microtask to avoid interleaving with SSE batch
+      queueMicrotask(() => {
+        void processNextQueuedMessage();
+      });
     });
     onCleanup(cleanup);
   });
@@ -341,9 +304,7 @@ function App() {
   // Handlers
   const handleSubmit = async () => {
     const text = input().trim();
-    console.log("[App] handleSubmit called:", { text: text.slice(0, 50), isReady: sync.isReady() });
     if (!text || !sync.isReady()) {
-      console.log("[App] handleSubmit early return:", { hasText: !!text, isReady: sync.isReady() });
       return;
     }
 
@@ -430,28 +391,38 @@ function App() {
 
   const processNextQueuedMessage = async () => {
     const queue = messageQueue();
-    if (queue.length === 0) return;
+    const inflight = inFlightMessage();
+    const sessionId = sync.currentSessionId();
+    
+    if (queue.length === 0) {
+      return;
+    }
     
     // Don't process if there's already an in-flight message
-    if (inFlightMessage()) {
-      console.log("[App] Skipping queue processing - message already in-flight");
+    if (inflight) {
+      return;
+    }
+    
+    if (!sessionId || !sync.isReady()) {
       return;
     }
     
     const [next, ...rest] = queue;
+    
+    // Generate a FRESH messageID right before sending to ensure it's newer than the last assistant message
+    // This is critical - IDs generated earlier (when queueing) will be older than assistant responses
+    const messageID = Id.ascending("message");
+    
     setMessageQueue(rest);
-    
-    const sessionId = sync.currentSessionId();
-    if (!sessionId || !sync.isReady()) return;
-    
     sync.setThinking(sessionId, true);
     
-    // Track this queued message as in-flight using its pre-generated messageID
-    setInFlightMessage({ messageID: next.messageID, sessionId });
+    // Track this queued message as in-flight using the fresh messageID
+    setInFlightMessage({ messageID, sessionId });
 
     try {
       const extraParts = buildSelectionParts(next.attachments);
-      const result = await sendPrompt(sessionId, next.text, next.agent, extraParts, next.messageID);
+      
+      const result = await sendPrompt(sessionId, next.text, next.agent, extraParts, messageID);
       
       // Check for SDK error in result (SDK doesn't throw by default)
       if (result?.error) {
@@ -489,10 +460,9 @@ function App() {
     const attachmentsKey = sessionKey();
     const attachments = selectionAttachments();
     
-    // Generate sortable messageID upfront for idempotent sends
+    // Queue the message without a messageID - we'll generate it fresh when sending
     const queuedMessage: QueuedMessage = {
       id: crypto.randomUUID(),
-      messageID: Id.ascending("message"),
       text,
       agent,
       attachments,
@@ -645,8 +615,6 @@ function App() {
     permissionId: string,
     response: "once" | "always" | "reject"
   ) => {
-    console.log(`[App] Permission response: ${response} for ${permissionId}`);
-
     const perms = pendingPermissions();
     let permission: Permission | undefined;
     for (const [, perm] of perms.entries()) {
@@ -697,6 +665,7 @@ function App() {
                 <PermissionPrompt
                   permission={permission}
                   onResponse={handlePermissionResponse}
+                  workspaceRoot={sync.workspaceRoot()}
                 />
               )}
             </For>
@@ -726,7 +695,7 @@ function App() {
         messages={messages()}
         isThinking={isThinking()}
         workspaceRoot={sync.workspaceRoot()}
-        pendingPermissions={pendingPermissions()}
+        pendingPermissions={pendingPermissions}
         onPermissionResponse={handlePermissionResponse}
         editingMessageId={editingMessageId()}
         editingText={editingText()}
@@ -740,7 +709,7 @@ function App() {
       <Show when={hasMessages()}>
         <div class="input-divider" />
         <div class="input-status-row">
-          {/* <FileChangesSummary fileChanges={fileChanges()} /> */}
+          <FileChangesSummary fileChanges={fileChanges()} />
           <ContextIndicator contextInfo={contextInfo()} />
         </div>
         
@@ -751,6 +720,7 @@ function App() {
                 <PermissionPrompt
                   permission={permission}
                   onResponse={handlePermissionResponse}
+                  workspaceRoot={sync.workspaceRoot()}
                 />
               )}
             </For>

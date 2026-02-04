@@ -1,10 +1,6 @@
 import { createMemo } from "solid-js";
 import { Show } from "solid-js";
-import type { ToolState as BaseToolState, MessagePart, Permission } from "../../types";
-
-export type ToolState = Omit<BaseToolState, "input"> & {
-  input?: Record<string, unknown>;
-};
+import type { ToolState, MessagePart, Permission } from "../../types";
 
 export function toRelativePath(
   absolutePath: string | undefined,
@@ -53,31 +49,32 @@ export function splitFilePath(filePath: string): {
   };
 }
 
-// Safely extract the tool inputs from either state.input or part.input (SDK may send either)
+// Extract the tool inputs from state
 export function getToolInputs(
   state: ToolState,
-  part?: MessagePart,
+  _part?: MessagePart,
 ): Record<string, unknown> {
-  const raw = (state?.input ??
-    (part as unknown as { input?: unknown })?.input) as unknown;
-  return raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return state?.input ?? {};
 }
 
 // Shared permission lookup logic
 export function usePermission(
   part: MessagePart,
-  pendingPermissions?: Map<string, Permission>,
+  pendingPermissions: () => Map<string, Permission> | undefined,
 ) {
   return createMemo(() => {
-    const perms = pendingPermissions;
+    // Call the accessor inside memo to track it as a dependency
+    const perms = pendingPermissions();
     if (!perms) return undefined;
     const callID = part.callID;
+
     if (callID && perms.has(callID)) {
       return perms.get(callID);
     }
     if (perms.has(part.id)) {
       return perms.get(part.id);
     }
+
     return undefined;
   });
 }

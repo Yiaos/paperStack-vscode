@@ -11,7 +11,7 @@ import {
   type FilePartInput,
   type AgentPartInput,
   type SubtaskPartInput,
-} from "@opencode-ai/sdk/client";
+} from "@opencode-ai/sdk/v2/client";
 
 import { hasVscodeApi, vscode } from "../utils/vscode";
 import { proxyFetch } from "../utils/proxyFetch";
@@ -36,7 +36,7 @@ interface GlobalConfig {
 export interface InitData {
   currentSessionId?: string | null;
   currentSessionTitle?: string;
-  currentSessionMessages?: unknown[];
+  currentSessionMessages?: Array<{ id: string; role: string }>;
   defaultAgent?: string;
 }
 
@@ -50,11 +50,12 @@ function createOpenCode() {
 
   onMount(() => {
     // Check for standalone config (for E2E tests / web app)
-    const globalConfig = (window as unknown as { OPENCODE_CONFIG?: GlobalConfig }).OPENCODE_CONFIG;
+    const globalConfig = (window as { OPENCODE_CONFIG?: GlobalConfig }).OPENCODE_CONFIG;
     if (globalConfig?.serverUrl) {
       const opencodeClient = createOpencodeClient({
         baseUrl: globalConfig.serverUrl,
         fetch: proxyFetch,
+        directory: globalConfig.workspaceRoot,
       });
       setClient(opencodeClient);
       setServerUrl(globalConfig.serverUrl);
@@ -79,18 +80,20 @@ function createOpenCode() {
         const url = data.serverUrl ?? data.url;
         if (!url) return;
 
+        // Store workspaceRoot for SSE subscriptions
+        const wsRoot = data.workspaceRoot;
+        if (wsRoot) {
+          setWorkspaceRoot(wsRoot);
+        }
+
         const opencodeClient = createOpencodeClient({
           baseUrl: url,
           fetch: proxyFetch,
+          directory: wsRoot,
         });
         setClient(opencodeClient);
         setServerUrl(url);
         setIsReady(true);
-
-        // Store workspaceRoot for SSE subscriptions
-        if (data.workspaceRoot) {
-          setWorkspaceRoot(data.workspaceRoot);
-        }
 
         // Store initial session data from 'init' message
         if (data.type === "init") {
@@ -131,13 +134,11 @@ function createOpenCode() {
     const [providerID, modelID] = model.split("/");
 
     return c.session.prompt({
-      path: { id: sessionId },
-      body: {
-        model: { providerID, modelID },
-        parts: [{ type: "text", text }, ...extraParts],
-        ...(agent ? { agent } : {}),
-        ...(messageID ? { messageID } : {}),
-      },
+      sessionID: sessionId,
+      model: { providerID, modelID },
+      parts: [{ type: "text", text }, ...extraParts],
+      ...(agent ? { agent } : {}),
+      ...(messageID ? { messageID } : {}),
     });
   }
 
@@ -182,9 +183,11 @@ function createOpenCode() {
     const c = client();
     if (!c) throw new Error("Not connected");
 
-    return c.postSessionIdPermissionsPermissionId({
-      path: { id: sessionId, permissionID: permissionId },
-      body: { response },
+    const dir = workspaceRoot();
+    return c.permission.reply({
+      reply: response,
+      requestID: permissionId,
+      ...(dir ? { directory: dir } : {}),
     });
   }
 
@@ -194,8 +197,8 @@ function createOpenCode() {
     if (!c) throw new Error("Not connected");
 
     return c.session.revert({
-      path: { id: sessionId },
-      body: { messageID: messageId },
+      sessionID: sessionId,
+      messageID: messageId,
     });
   }
 
@@ -210,14 +213,20 @@ function createOpenCode() {
     // Expose SDK methods directly
     listSessions: () => {
       const dir = workspaceRoot();
-      return client()?.session.list(dir ? { query: { directory: dir } } : undefined);
+      return client()?.session.list(dir ? { directory: dir } : undefined);
     },
-    getSession: (id: string) => client()?.session.get({ path: { id } }),
-    createSession: () => client()?.session.create({ body: {} }),
+    getSession: (id: string) => client()?.session.get({ sessionID: id }),
+    createSession: () => {
+      const dir = workspaceRoot();
+      return client()?.session.create(dir ? { directory: dir } : undefined);
+    },
     getAgents: () => client()?.app.agents(),
-    getMessages: (id: string) => client()?.session.messages({ path: { id } }),
-    getConfig: () => client()?.config.get(),
-    abortSession: (id: string) => client()?.session.abort({ path: { id } }),
+    getMessages: (id: string) => client()?.session.messages({ sessionID: id }),
+    getConfig: () => {
+      const dir = workspaceRoot();
+      return client()?.config.get(dir ? { directory: dir } : undefined);
+    },
+    abortSession: (id: string) => client()?.session.abort({ sessionID: id }),
     // High-level helpers
     sendPrompt,
     subscribeToEvents,
