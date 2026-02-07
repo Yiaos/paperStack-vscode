@@ -130,6 +130,11 @@ export const HostMessageSchema = z.discriminatedUnion("type", [
       currentSessionTitle: z.string().optional(),
       currentSessionMessages: z.array(IncomingMessageSchema).optional(),
       defaultAgent: z.string().optional(),
+      settings: z.object({
+        mainFile: z.string().optional(),
+        autoCompile: z.boolean().optional(),
+      }).optional(),
+      logoUri: z.string().optional(),
     })
     .transform((v) => ({
       ...v,
@@ -138,6 +143,16 @@ export const HostMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("error"),
     message: z.string(),
+  }),
+  z.object({
+    type: z.literal("settings-data"),
+    settings: z.object({
+      mainFile: z.string().optional(),
+      autoCompile: z.boolean().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("settings-updated"),
   }),
   // Proxy fetch/SSE messages for CORS bypass
   z.object({
@@ -201,6 +216,19 @@ export const WebviewMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("agent-changed"),
     agent: z.string(),
+  }),
+  z.object({
+    type: z.literal("get-settings"),
+  }),
+  z.object({
+    type: z.literal("update-settings"),
+    settings: z.object({
+      mainFile: z.string().optional(),
+      autoCompile: z.boolean().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("reload-window"),
   }),
   z.object({
     type: z.literal("open-file"),

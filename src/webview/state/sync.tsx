@@ -19,7 +19,7 @@ import { useOpenCode, type Event, type SSEStatus } from "../hooks/useOpenCode";
 import type { Message, Permission } from "../types";
 import { type SyncState, type SyncStatus, createEmptyState } from "./types";
 import { applyEvent, type EventHandlerContext } from "./eventHandlers";
-import { fetchBootstrapData, commitBootstrapData } from "./bootstrap";
+import { fetchBootstrapData, commitBootstrapData, fetchSessionData, commitSessionData } from "./bootstrap";
 import { logger } from "../utils/logger";
 
 export type { SyncStatus } from "./types";
@@ -116,7 +116,7 @@ function createSync() {
     if (!sessionId) return new Map<string, Permission>();
 
     const currentSession = store.sessions.find((s) => s.id === sessionId);
-    
+
     // Find root session (current if no parent, otherwise its parent)
     let rootId = sessionId;
     if (currentSession?.parentID) {
@@ -214,12 +214,55 @@ function createSync() {
     return promise;
   }
 
+  async function switchSession(sessionId: string): Promise<void> {
+    const client = sdk.client();
+    if (!client) return;
+
+    // specific optimization: just set ID if already loaded? 
+    // No, we need to ensure we have the latest messages.
+
+    // Update ID immediately to show optimistic UI state (empty/loading)
+    setCurrentSessionId(sessionId);
+
+    const workspaceRoot = sdk.workspaceRoot();
+    const key = `switch:${sessionId}`;
+
+    const pending = inflight.get(key);
+    if (pending) return pending;
+
+    setStore("status", { status: "bootstrapping" });
+
+    const promise = (async () => {
+      try {
+        // Only fetch session-specific data
+        const data = await fetchSessionData({
+          client: client as Parameters<typeof fetchSessionData>[0]["client"],
+          sessionId,
+          workspaceRoot,
+        });
+
+        if (currentSessionId() !== sessionId) return;
+
+        commitSessionData(data, sessionId, setStore);
+        flushEventQueue();
+        setStore("status", { status: "connected" });
+      } catch (err) {
+        console.error("[Sync] Switch session failed:", err);
+        setStore("status", { status: "error", message: (err as Error).message });
+      }
+    })();
+
+    inflight.set(key, promise);
+    promise.finally(() => inflight.delete(key));
+    return promise;
+  }
+
   function handleEvent(event: Event) {
     // Log error events prominently
     if (event.type === "session.error") {
       logger.error("SSE session.error event received", { event });
     }
-    
+
     if ((event.type as string) === "server.instance.disposed") {
       // Flush pending events before re-bootstrap
       flushEventQueue();
@@ -241,7 +284,11 @@ function createSync() {
     if (status.status === "connecting") {
       setStore("status", { status: "connecting" });
     } else if (status.status === "connected") {
-      setStore("status", { status: "connected" });
+      // 连接成功后进入 bootstrapping 状态，待数据加载完成后才变为 connected
+      // 避免在 bootstrap 完成前就显示为 connected
+      if (store.status.status !== "bootstrapping" && store.status.status !== "connected") {
+        setStore("status", { status: "bootstrapping" });
+      }
       setBootstrapCount((c) => c + 1);
     } else if (status.status === "reconnecting") {
       setStore("status", { status: "reconnecting", attempt: status.attempt ?? 0 });
@@ -250,15 +297,39 @@ function createSync() {
     }
   }
 
+  // 连接超时检测
+  const CONNECTION_TIMEOUT_MS = 10000;
+  let connectionTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   function startSSE() {
     const cleanup = sseCleanup();
     if (cleanup) cleanup();
 
+    // 清除之前的超时
+    if (connectionTimeoutId) {
+      clearTimeout(connectionTimeoutId);
+      connectionTimeoutId = null;
+    }
+
     if (!sdk.isReady()) return;
+
+    // 设置连接超时：如果 10 秒内一直处于 connecting 状态，自动重连
+    connectionTimeoutId = setTimeout(() => {
+      if (store.status.status === "connecting") {
+        console.warn("[Sync] Connection timeout, will retry");
+        reconnect();
+      }
+    }, CONNECTION_TIMEOUT_MS);
 
     try {
       const newCleanup = sdk.subscribeToEvents(handleEvent, handleStatus);
-      setSseCleanup(() => newCleanup);
+      setSseCleanup(() => () => {
+        if (connectionTimeoutId) {
+          clearTimeout(connectionTimeoutId);
+          connectionTimeoutId = null;
+        }
+        newCleanup();
+      });
     } catch (err) {
       console.error("[Sync] Failed to start SSE:", err);
     }
@@ -326,6 +397,7 @@ function createSync() {
 
     currentSessionId,
     setCurrentSessionId,
+    switchSession,
 
     setThinking,
     setSessionError,

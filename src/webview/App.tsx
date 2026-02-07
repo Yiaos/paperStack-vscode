@@ -2,6 +2,8 @@ import { createSignal, createMemo, Show, onMount, onCleanup, createEffect, For }
 import { InputBar } from "./components/InputBar";
 import { MessageList } from "./components/MessageList";
 import { TopBar } from "./components/TopBar";
+import { SettingsDrawer } from "./components/SettingsDrawer";
+import { LoadingOverlay } from "./components/LoadingOverlay";
 import { ContextIndicator } from "./components/ContextIndicator";
 import { FileChangesSummary } from "./components/FileChangesSummary";
 import { PermissionPrompt } from "./components/PermissionPrompt";
@@ -39,7 +41,7 @@ const NEW_SESSION_KEY = "__new__";
 function App() {
   // Use the sync context for server-owned state
   const sync = useSync();
-  
+
   // Local UI-only state
   const [defaultAgent, setDefaultAgent] = createSignal<string | null>(null);
   const [drafts, setDrafts] = createSignal<Map<string, string>>(new Map());
@@ -47,14 +49,20 @@ function App() {
   const [selectionAttachmentsBySession, setSelectionAttachmentsBySession] = createSignal<
     Map<string, SelectionAttachment[]>
   >(new Map());
-  
+
   // Editing state for previous messages
   const [editingMessageId, setEditingMessageId] = createSignal<string | null>(null);
   const [editingText, setEditingText] = createSignal<string>("");
-  
+
   // Message queue for queuing messages while generating
   const [messageQueue, setMessageQueue] = createSignal<QueuedMessage[]>([]);
-  
+
+  // Settings drawer state
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
+
+  // 状态条关闭状态
+  const [statusBannerDismissed, setStatusBannerDismissed] = createSignal(false);
+
   // In-flight message tracking for outbox pattern
   const [inFlightMessage, setInFlightMessage] = createSignal<InFlightMessage | null>(null);
 
@@ -72,7 +80,7 @@ function App() {
 
   // Get the current session key for drafts/agents
   const sessionKey = () => sync.currentSessionId() || NEW_SESSION_KEY;
-  
+
   // Derive current session title from store
   const isDefaultTitle = (title: string) => /^(New session|Child session) - \d{4}-\d{2}-\d{2}T/.test(title);
   const currentSessionTitle = createMemo(() => {
@@ -106,7 +114,7 @@ function App() {
       return next;
     });
   };
-  
+
   // Convenience accessors from sync store
   const messages = () => sync.messages();
   const agents = () => sync.agents();
@@ -156,7 +164,7 @@ function App() {
   const buildSelectionParts = (attachments: SelectionAttachment[]): FilePartInput[] => {
     return attachments.map((attachment) => {
       const url = new URL(attachment.fileUrl);
-      
+
       if (attachment.startLine !== undefined) {
         const start = attachment.endLine
           ? Math.min(attachment.startLine, attachment.endLine)
@@ -167,7 +175,7 @@ function App() {
         url.searchParams.set("start", String(start));
         url.searchParams.set("end", String(end));
       }
-      
+
       return {
         type: "file" as const,
         mime: "text/plain",
@@ -212,15 +220,15 @@ function App() {
   const sessionsToShow = createMemo(() => {
     const root = sync.workspaceRoot();
     const currentId = sync.currentSessionId();
-    
+
     return sessions()
       .filter(s => {
         // Only list sessions with primary agents (no parentID)
         if (s.parentID) return false;
-        
+
         // Filter to sessions in the same repo/worktree
         if (root && s.directory !== root) return false;
-        
+
         return true;
       })
       // Sort by edited time (updated) instead of started time (created)
@@ -272,7 +280,7 @@ function App() {
   createEffect(() => {
     const init = initData();
     if (!init) return;
-    
+
     const agentList = agents();
     const persistedDefault = init.defaultAgent;
     if (persistedDefault && agentList.some(a => a.name === persistedDefault)) {
@@ -281,18 +289,18 @@ function App() {
       setDefaultAgent(agentList[0].name);
     }
   });
-  
+
   // Clear inFlightMessage when session becomes idle and trigger queue drain
   onMount(() => {
     const cleanup = sync.onSessionIdle((sessionId) => {
       const inflight = inFlightMessage();
-      
+
       if (inflight?.sessionId !== sessionId) {
         return;
       }
-      
+
       setInFlightMessage(null);
-      
+
       // Schedule queue drain in a microtask to avoid interleaving with SSE batch
       queueMicrotask(() => {
         void processNextQueuedMessage();
@@ -346,27 +354,27 @@ function App() {
 
     try {
       const result = await sendPrompt(sessionId, text, agent, extraParts, messageID);
-      
+
       // Log the full result for debugging
-      logger.info("sendPrompt result", { 
-        hasError: !!result?.error, 
+      logger.info("sendPrompt result", {
+        hasError: !!result?.error,
         hasData: !!result?.data,
         response: result?.response?.status,
       });
-      
+
       // Check for SDK error in result (SDK doesn't throw by default)
       if (result?.error) {
         // Log full error structure for debugging
-        logger.error("sendPrompt returned error", { 
+        logger.error("sendPrompt returned error", {
           error: result.error,
           response: result?.response,
         });
-        
+
         // Extract error message from nested structure: result.error may be { error: { data: { message } } } or { data: { message } }
         const errorData = result.error as { data?: { message?: string }; error?: { data?: { message?: string } } };
-        const errorMessage = 
-          errorData.data?.message || 
-          errorData.error?.data?.message || 
+        const errorMessage =
+          errorData.data?.message ||
+          errorData.error?.data?.message ||
           (typeof errorData === 'string' ? errorData : JSON.stringify(errorData)) ||
           "Unknown error";
         sync.setThinking(sessionId, false);
@@ -374,14 +382,14 @@ function App() {
         sync.setSessionError(sessionId, errorMessage);
         return;
       }
-      
+
       if (attachments.length > 0) {
         setSelectionAttachmentsForKey(attachmentsKey, []);
       }
     } catch (err) {
       logger.error("sendPrompt exception", { error: String(err), stack: (err as Error).stack });
       const errorMessage = (err as Error).message;
-      
+
       // Show all errors inline and clear in-flight
       sync.setThinking(sessionId, false);
       setInFlightMessage(null);
@@ -393,43 +401,43 @@ function App() {
     const queue = messageQueue();
     const inflight = inFlightMessage();
     const sessionId = sync.currentSessionId();
-    
+
     if (queue.length === 0) {
       return;
     }
-    
+
     // Don't process if there's already an in-flight message
     if (inflight) {
       return;
     }
-    
+
     if (!sessionId || !sync.isReady()) {
       return;
     }
-    
+
     const [next, ...rest] = queue;
-    
+
     // Generate a FRESH messageID right before sending to ensure it's newer than the last assistant message
     // This is critical - IDs generated earlier (when queueing) will be older than assistant responses
     const messageID = Id.ascending("message");
-    
+
     setMessageQueue(rest);
     sync.setThinking(sessionId, true);
-    
+
     // Track this queued message as in-flight using the fresh messageID
     setInFlightMessage({ messageID, sessionId });
 
     try {
       const extraParts = buildSelectionParts(next.attachments);
-      
+
       const result = await sendPrompt(sessionId, next.text, next.agent, extraParts, messageID);
-      
+
       // Check for SDK error in result (SDK doesn't throw by default)
       if (result?.error) {
         const errorData = result.error as { data?: { message?: string }; error?: { data?: { message?: string } } };
-        const errorMessage = 
-          errorData.data?.message || 
-          errorData.error?.data?.message || 
+        const errorMessage =
+          errorData.data?.message ||
+          errorData.error?.data?.message ||
           (typeof errorData === 'string' ? errorData : JSON.stringify(errorData)) ||
           "Unknown error";
         sync.setThinking(sessionId, false);
@@ -441,7 +449,7 @@ function App() {
     } catch (err) {
       console.error("[App] Queue sendPrompt failed:", err);
       const errorMessage = (err as Error).message;
-      
+
       // Show all errors inline and clear queue + in-flight
       sync.setThinking(sessionId, false);
       setInFlightMessage(null);
@@ -453,13 +461,13 @@ function App() {
   const handleQueueMessage = () => {
     const text = input().trim();
     if (!text || !sync.isReady()) return;
-    
+
     const agent = agents().some((a) => a.name === selectedAgent())
       ? selectedAgent()
       : null;
     const attachmentsKey = sessionKey();
     const attachments = selectionAttachments();
-    
+
     // Queue the message without a messageID - we'll generate it fresh when sending
     const queuedMessage: QueuedMessage = {
       id: crypto.randomUUID(),
@@ -467,7 +475,7 @@ function App() {
       agent,
       attachments,
     };
-    
+
     setMessageQueue((prev) => [...prev, queuedMessage]);
     setInput("");
     if (attachments.length > 0) {
@@ -483,7 +491,7 @@ function App() {
     const queue = messageQueue();
     const index = queue.findIndex((m) => m.id === id);
     if (index === -1) return;
-    
+
     const message = queue[index];
     // Remove this message and all after it
     setMessageQueue(queue.slice(0, index));
@@ -502,16 +510,15 @@ function App() {
 
   const handleSessionSelect = async (sessionId: string) => {
     if (!sync.isReady()) return;
-    
+
     // Clear local UI state
     setMessageQueue([]);
     setInFlightMessage(null);
     setEditingMessageId(null);
     setEditingText("");
-    
+
     // Set session and bootstrap to load messages
-    sync.setCurrentSessionId(sessionId);
-    await sync.bootstrap();
+    await sync.switchSession(sessionId);
   };
 
   const handleNewSession = async () => {
@@ -526,7 +533,7 @@ function App() {
       setInFlightMessage(null);
       setEditingMessageId(null);
       setEditingText("");
-      
+
       // Set new session and bootstrap
       sync.setCurrentSessionId(newSession.id);
       await sync.bootstrap();
@@ -586,13 +593,13 @@ function App() {
     try {
       await revertToMessage(sessionId, messageId);
       const result = await sendPrompt(sessionId, newText.trim(), agent, [], newMessageID);
-      
+
       // Check for SDK error in result (SDK doesn't throw by default)
       if (result?.error) {
         const errorData = result.error as { data?: { message?: string }; error?: { data?: { message?: string } } };
-        const errorMessage = 
-          errorData.data?.message || 
-          errorData.error?.data?.message || 
+        const errorMessage =
+          errorData.data?.message ||
+          errorData.error?.data?.message ||
           (typeof errorData === 'string' ? errorData : JSON.stringify(errorData)) ||
           "Unknown error";
         sync.setThinking(sessionId, false);
@@ -603,7 +610,7 @@ function App() {
     } catch (err) {
       console.error("[App] Failed to edit message:", err);
       const errorMessage = (err as Error).message;
-      
+
       // Show all errors inline and clear in-flight
       sync.setThinking(sessionId, false);
       setInFlightMessage(null);
@@ -641,13 +648,25 @@ function App() {
 
   return (
     <div class={`app ${hasMessages() ? "app--has-messages" : ""}`}>
+      <Show when={sync.status().status !== "connected" && !statusBannerDismissed()}>
+        <LoadingOverlay
+          status={sync.status()}
+          logoUri={initData()?.logoUri}
+          onDismiss={() => setStatusBannerDismissed(true)}
+          onReconnect={() => {
+            setStatusBannerDismissed(false);
+            sync.reconnect();
+          }}
+        />
+      </Show>
+
       <Show when={hostError()}>
         <div class="error-banner">
           <span class="error-banner__message">{hostError()}</span>
           <button class="error-banner__dismiss" onClick={clearHostError} aria-label="Dismiss error">×</button>
         </div>
       </Show>
-      
+
       <TopBar
         sessions={sessionsToShow()}
         currentSessionId={sync.currentSessionId()}
@@ -656,6 +675,12 @@ function App() {
         onSessionSelect={handleSessionSelect}
         onNewSession={handleNewSession}
         onRefreshSessions={refreshSessions}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      <SettingsDrawer
+        isOpen={settingsOpen()}
+        onClose={() => setSettingsOpen(false)}
       />
 
       <Show when={!hasMessages()}>
@@ -672,7 +697,7 @@ function App() {
             </For>
           </div>
         </Show>
-        
+
         <InputBar
           value={input()}
           onInput={setInput}
@@ -713,7 +738,7 @@ function App() {
           <FileChangesSummary fileChanges={fileChanges()} />
           <ContextIndicator contextInfo={contextInfo()} />
         </div>
-        
+
         <Show when={standalonePermissions().length > 0}>
           <div class="standalone-permissions">
             <For each={standalonePermissions()}>
@@ -727,7 +752,7 @@ function App() {
             </For>
           </div>
         </Show>
-        
+
         <InputBar
           value={input()}
           onInput={setInput}

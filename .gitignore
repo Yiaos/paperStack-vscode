@@ -5,6 +5,8 @@ out
 *.vsix
 .vscode-test
 .env
+.worktrees
+.DS_Store
 
 OpenCode.log
 # Playwright test artifacts

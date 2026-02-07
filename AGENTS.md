@@ -1,5 +1,8 @@
 # AGENTS.md
 
+## Important
+@IMPORTANT.md
+
 ## Commands
 
 - **Build**: `pnpm build` (builds extension + webview)

@@ -23,18 +23,16 @@ export async function activate(context: vscode.ExtensionContext) {
   // Create OpenCode service
   const openCodeService = new OpenCodeService();
 
-  // Initialize OpenCode with workspace root
+  // Initialize OpenCode with workspace root - non-blocking background task
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-  try {
-    await openCodeService.initialize(workspaceRoot);
+  openCodeService.initialize(workspaceRoot).then(() => {
     logger.info("OpenCode service initialized successfully");
-  } catch (error) {
+  }).catch((error) => {
     logger.error("Failed to initialize OpenCode service", error);
     vscode.window.showErrorMessage(
-      "Failed to start OpenCode. Please check your configuration."
+      `Failed to start PaperStack AI service: ${error.message}`
     );
-  }
+  });
 
   const provider = new OpenCodeViewProvider(
     context.extensionUri,
@@ -73,12 +71,12 @@ export async function activate(context: vscode.ExtensionContext) {
         selection: selection.isEmpty
           ? undefined
           : {
-              startLine: selection.start.line + 1,
-              endLine: selection.end.line + 1,
-            },
+            startLine: selection.start.line + 1,
+            endLine: selection.end.line + 1,
+          },
       };
 
-      await vscode.commands.executeCommand("workbench.view.extension.opencode");
+      await vscode.commands.executeCommand("workbench.view.extension.paperstack-ai");
       provider.sendHostMessage(message);
     }
   );
@@ -88,9 +86,9 @@ export async function activate(context: vscode.ExtensionContext) {
   // Cleanup on deactivation
   context.subscriptions.push(openCodeService);
 
-  logger.info("OpenCode webview provider registered");
+  logger.info("PaperStack AI webview provider registered");
 }
 
 export function deactivate() {
-  logger?.info("OpenCode extension deactivated");
+  logger?.info("PaperStack AI extension deactivated");
 }

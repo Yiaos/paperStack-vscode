@@ -19,7 +19,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
     private readonly _extensionUri: vscode.Uri,
     private readonly _openCodeService: OpenCodeService,
     private readonly _globalState: vscode.Memento
-  ) {}
+  ) { }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -28,14 +28,15 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
   ) {
     const logger = getLogger();
     logger.info('resolveWebviewView called');
-    
+
     this._view = webviewView;
     this._webviewReady = false;
 
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [
-        vscode.Uri.joinPath(this._extensionUri, 'out')
+        vscode.Uri.joinPath(this._extensionUri, 'out'),
+        vscode.Uri.joinPath(this._extensionUri, 'media')
       ]
     };
 
@@ -47,7 +48,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       // Handle proxy messages directly (they don't go through parseWebviewMessage)
       if (typeof data === 'object' && data !== null) {
         const msg = data as Record<string, unknown>;
-        
+
         // Handle log messages from webview
         if (msg.type === 'log') {
           const logger = getLogger();
@@ -63,7 +64,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
           }
           return;
         }
-        
+
         if (msg.type === 'proxyFetch') {
           await this._handleProxyFetch(msg as { id: string; url: string; init?: { method?: string; headers?: Record<string, string>; body?: string } });
           return;
@@ -99,6 +100,15 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       case 'agent-changed':
         await this._handleAgentChanged(message.agent);
         break;
+      case 'get-settings':
+        this._sendSettings();
+        break;
+      case 'update-settings':
+        await this._handleUpdateSettings(message.settings);
+        break;
+      case 'reload-window':
+        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        break;
       case 'open-file':
         await this._handleOpenFile(message.url, message.startLine, message.endLine);
         break;
@@ -122,15 +132,59 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       const logger = getLogger();
       logger.error('[ViewProvider] Failed to open file', { url, error });
-      vscode.window.showErrorMessage('OpenCode: Failed to open file.');
+      vscode.window.showErrorMessage('PaperStack AI: Failed to open file.');
     }
   }
 
+  private _getSettings() {
+    return {
+      mainFile: this._globalState.get<string>('paperstack.mainFile', ''),
+      autoCompile: this._globalState.get<boolean>('paperstack.autoCompile', true),
+    };
+  }
+
+  private _sendSettings() {
+    this._sendMessage({
+      type: 'settings-data',
+      settings: this._getSettings(),
+    });
+  }
+
+  private async _handleUpdateSettings(settings: { mainFile?: string; autoCompile?: boolean }) {
+    if (settings.mainFile !== undefined) {
+      await this._globalState.update('paperstack.mainFile', settings.mainFile);
+    }
+    if (settings.autoCompile !== undefined) {
+      await this._globalState.update('paperstack.autoCompile', settings.autoCompile);
+    }
+    this._sendSettings();
+    this._sendMessage({ type: 'settings-updated' });
+  }
+
+  private _handleReadyTimeout: NodeJS.Timeout | undefined;
+
   private async _handleReady() {
+    // Debounce the ready handler to prevent multiple rapid calls during initialization/resizing
+    if (this._handleReadyTimeout) {
+      clearTimeout(this._handleReadyTimeout);
+    }
+
+    this._handleReadyTimeout = setTimeout(async () => {
+      await this._doHandleReady();
+    }, 200);
+  }
+
+  private async _doHandleReady() {
     try {
       const currentSessionId = this._openCodeService.getCurrentSessionId() ?? undefined;
       const currentSessionTitle = this._openCodeService.getCurrentSessionTitle();
-      
+      const webview = this._view?.webview;
+
+      let logoUri: string | undefined;
+      if (webview) {
+        logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'logo.png')).toString();
+      }
+
       let messages: IncomingMessage[] | undefined;
       if (currentSessionId) {
         try {
@@ -145,7 +199,7 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
           this._sendMessage({ type: 'error', message: `Failed to load session messages: ${(error as Error).message}` });
         }
       }
-      
+
       this._sendMessage({
         type: 'init',
         ready: this._openCodeService.isReady(),
@@ -155,6 +209,8 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
         currentSessionTitle,
         currentSessionMessages: messages,
         defaultAgent: this._globalState.get<string>(LAST_AGENT_KEY),
+        settings: this._getSettings(),
+        logoUri,
       });
       this._webviewReady = true;
       this._flushPendingMessages();
@@ -234,26 +290,26 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       },
       onStateChange: (state: SseConnectionState) => {
         logger.info('[ViewProvider] SSE state change', { id, state });
-        
+
         // Send status to webview for observability
         if (state.status === 'connecting') {
           this._sendMessage({ type: 'sseStatus', id, status: 'connecting' } as HostMessage);
         } else if (state.status === 'connected') {
           this._sendMessage({ type: 'sseStatus', id, status: 'connected' } as HostMessage);
         } else if (state.status === 'reconnecting') {
-          this._sendMessage({ 
-            type: 'sseStatus', 
-            id, 
-            status: 'reconnecting', 
-            attempt: state.attempt, 
-            nextRetryMs: state.nextRetryMs 
+          this._sendMessage({
+            type: 'sseStatus',
+            id,
+            status: 'reconnecting',
+            attempt: state.attempt,
+            nextRetryMs: state.nextRetryMs
           } as HostMessage);
         } else if (state.status === 'closed') {
-          this._sendMessage({ 
-            type: 'sseStatus', 
-            id, 
-            status: 'closed', 
-            reason: state.reason 
+          this._sendMessage({
+            type: 'sseStatus',
+            id,
+            status: 'closed',
+            reason: state.reason
           } as HostMessage);
           this._sendMessage({ type: 'sseClosed', id } as HostMessage);
           this._sseClients.delete(id);
@@ -431,9 +487,9 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:* ${webview.cspSource};">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:; connect-src http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:* ${webview.cspSource};">
         <link href="${styleUri}" rel="stylesheet">
-        <title>OpenCode</title>
+        <title>PaperStack AI</title>
       </head>
       <body>
         <div id="root"></div>

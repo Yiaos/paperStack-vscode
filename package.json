@@ -1,16 +1,16 @@
 {
-  "name": "opencode-vscode",
-  "displayName": "OpenCode GUI",
-  "description": "OpenCode AI coding agent for VSCode GUI extension",
-  "version": "0.3.2",
-  "publisher": "TanishqKancharla",
+  "name": "ai",
+  "displayName": "PaperStack AI",
+  "description": "PaperStack 论文写作辅助插件",
+  "version": "1.3.2",
+  "publisher": "paperstack",
   "icon": "media/logo.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/saffron-health/opencode-vscode-extension.git"
+    "url": "https://github.com/paperstack/paperStack.git"
   },
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Other",
@@ -22,18 +22,19 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "opencode",
-          "title": "OpenCode",
-          "icon": "media/icon.svg"
+          "id": "paperstack-ai",
+          "title": "PaperStack",
+          "icon": "media/logo.png"
         }
       ]
     },
     "views": {
-      "opencode": [
+      "paperstack-ai": [
         {
           "type": "webview",
           "id": "opencode.chatView",
-          "name": ""
+          "name": "",
+          "icon": "media/logo.png"
         }
       ]
     },

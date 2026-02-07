@@ -38,6 +38,7 @@ export interface InitData {
   currentSessionTitle?: string;
   currentSessionMessages?: Array<{ id: string; role: string }>;
   defaultAgent?: string;
+  logoUri?: string;
 }
 
 function createOpenCode() {
@@ -68,13 +69,13 @@ function createOpenCode() {
 
     const handleMessage = (e: MessageEvent) => {
       const data = e.data;
-      
+
       // Handle error messages from host
       if (data?.type === "error") {
         setHostError(data.message ?? "An unknown error occurred");
         return;
       }
-      
+
       // Support both legacy 'init' and future 'server-url' message types
       if (data?.type === "init" || data?.type === "server-url") {
         const url = data.serverUrl ?? data.url;
@@ -102,6 +103,7 @@ function createOpenCode() {
             currentSessionTitle: data.currentSessionTitle,
             currentSessionMessages: data.currentSessionMessages,
             defaultAgent: data.defaultAgent,
+            logoUri: data.logoUri,
           });
         }
       }
@@ -202,6 +204,10 @@ function createOpenCode() {
     });
   }
 
+  function reloadWindow() {
+    vscode.postMessage({ type: "reload-window" });
+  }
+
   return {
     client,
     isReady,
@@ -232,6 +238,7 @@ function createOpenCode() {
     subscribeToEvents,
     respondToPermission,
     revertToMessage,
+    reloadWindow,
   };
 }
 

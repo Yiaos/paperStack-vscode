@@ -16,6 +16,7 @@ type SessionApi = {
   list(opts?: { directory?: string }): Promise<{ data?: SDKSession[] }>;
   messages(opts: { sessionID: string }): Promise<{ data?: any[] }>;
   get(opts: { sessionID: string }): Promise<{ data?: SDKSession }>;
+  status(opts?: { directory?: string }): Promise<{ data?: { [key: string]: any } }>;
 };
 
 type PermissionApi = {
@@ -67,6 +68,10 @@ class MockSessionApi implements SessionApi {
         time: { created: Date.now(), updated: Date.now() },
       } as SDKSession,
     };
+  }
+
+  async status(_opts?: { directory?: string }): Promise<{ data?: { [key: string]: any } }> {
+    return { data: {} };
   }
 }
 

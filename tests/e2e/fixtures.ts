@@ -110,9 +110,9 @@ async function waitForServerReady(url: string, timeout = 10000): Promise<void> {
 async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServer> {
   return new Promise((resolve, reject) => {
     console.log(`[fixture] Spawning opencode serve in ${workspaceRoot}`);
-    
+
     const logs: string[] = [];
-    
+
     const serverProcess = spawn(
       "opencode",
       [
@@ -122,9 +122,7 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
         "--hostname",
         "127.0.0.1",
         "--cors",
-        "http://localhost:5199",
-        "--cors",
-        "http://127.0.0.1:5199",
+        "*",
         "--print-logs",
       ],
       {
@@ -140,10 +138,10 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
     const handleOutput = (data: Buffer) => {
       const text = data.toString();
       outputBuffer += text;
-      
+
       // Store logs for test access
       logs.push(text);
-      
+
       console.log(`[opencode] ${text.trim()}`);
 
       // Look for the server URL in the output
@@ -153,7 +151,7 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
         // Normalize 127.0.0.1 to localhost for browser compatibility
         serverUrl = urlMatch[1].replace("127.0.0.1", "localhost");
         console.log(`[fixture] Detected server URL: ${serverUrl}`);
-        
+
         const getLogEntries = () => {
           return logs
             .map((log) => {
@@ -179,9 +177,9 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
             return true;
           });
         };
-        
-        resolve({ 
-          url: serverUrl, 
+
+        resolve({
+          url: serverUrl,
           process: serverProcess,
           logs,
           getLogs: () => logs.join(""),
@@ -232,20 +230,20 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
 export const test = base.extend<OpenCodeFixtures, OpenCodeWorkerFixtures>({
   // Share the server across all tests in a worker
   opencodeServer: [
-    async ({}, use) => {
+    async ({ }, use) => {
       // Use sandbox directory for tests by default
       const defaultRoot = path.join(process.cwd(), "tests", "sandbox");
       const workspaceRoot = process.env.OPENCODE_WORKSPACE_ROOT || defaultRoot;
-      
+
       // Ensure sandbox directory exists
       if (!fs.existsSync(workspaceRoot)) {
         fs.mkdirSync(workspaceRoot, { recursive: true });
       }
-      
+
       console.log(`[fixture] Starting OpenCode server in ${workspaceRoot}`);
       const server = await startOpenCodeServer(workspaceRoot);
       console.log(`[fixture] OpenCode server started at ${server.url}`);
-      
+
       // Wait for server to be fully ready
       await waitForServerReady(server.url);
 
@@ -262,37 +260,68 @@ export const test = base.extend<OpenCodeFixtures, OpenCodeWorkerFixtures>({
     const openWebview = async (config?: Partial<OpenCodeConfig>) => {
       const defaultRoot = path.join(process.cwd(), "tests", "sandbox");
       const workspaceRoot = process.env.OPENCODE_WORKSPACE_ROOT || defaultRoot;
-      
+
       const defaultConfig: OpenCodeConfig = {
         serverUrl: opencodeServer.url,
         workspaceRoot,
       };
 
       const finalConfig = { ...defaultConfig, ...config };
-      
+
       // If custom opencode config is provided, write it to the sandbox
       if (finalConfig.opencodeConfig) {
         const configPath = path.join(workspaceRoot, "opencode.json");
         fs.writeFileSync(configPath, JSON.stringify(finalConfig.opencodeConfig, null, 2));
         console.log(`[fixture] Wrote custom opencode.json to ${configPath}`);
       }
-      
-      console.log(`[fixture] Opening webview with config:`, { 
-        ...finalConfig, 
-        opencodeConfig: finalConfig.opencodeConfig ? "custom" : "default" 
+
+      console.log(`[fixture] Opening webview with config:`, {
+        ...finalConfig,
+        opencodeConfig: finalConfig.opencodeConfig ? "custom" : "default"
       });
 
       // Set up route to inject config before page loads
       await page.route("**/standalone.html", async (route) => {
         const response = await route.fetch();
         let html = await response.text();
-        
-        // Replace the default config with our dynamic config
+
+        // Replace the default config with our dynamic config and mock VS Code API
+        const mockVsCodeApi = `
+          window.acquireVsCodeApi = () => {
+            let state = { mainFile: "", autoCompile: true };
+            return {
+              postMessage: (message) => {
+                console.log("[MockVSCode] Received:", message);
+                if (message.type === "get-settings") {
+                  window.postMessage({
+                    type: "settings-data",
+                    settings: { ...state }
+                  }, "*");
+                } else if (message.type === "update-settings") {
+                  state = { ...state, ...message.settings };
+                  // Simulate backend delay
+                  setTimeout(() => {
+                    window.postMessage({ type: "settings-updated" }, "*");
+                    // Also broadcast the new settings
+                    window.postMessage({
+                      type: "settings-data",
+                      settings: { ...state }
+                    }, "*");
+                  }, 50);
+                }
+              },
+              setState: () => {},
+              getState: () => ({})
+            };
+          };
+          window.OPENCODE_CONFIG = ${JSON.stringify(finalConfig)};
+        `;
+
         html = html.replace(
           /window\.OPENCODE_CONFIG\s*=\s*\{[^}]+\}/,
-          `window.OPENCODE_CONFIG = ${JSON.stringify(finalConfig)}`
+          mockVsCodeApi
         );
-        
+
         await route.fulfill({
           response,
           body: html,

@@ -15,154 +15,100 @@
 
   /* Core Colors */
   --foreground: var(--vscode-foreground, light-dark(#3b3b3b, #cccccc));
-  --description-foreground: var(
-    --vscode-descriptionForeground,
-    light-dark(#3b3b3b, #9d9d9d)
-  );
+  --description-foreground: var(--vscode-descriptionForeground,
+      light-dark(#3b3b3b, #9d9d9d));
   --error-foreground: var(--vscode-errorForeground, oklch(0.65 0.18 25));
   --focus-border: var(--vscode-focusBorder, light-dark(#005fb8, #0078d4));
 
   /* Sidebar */
-  --sidebar-background: var(
-    --vscode-sideBar-background,
-    light-dark(#f8f8f8, #181818)
-  );
+  --sidebar-background: var(--vscode-sideBar-background,
+      light-dark(#f8f8f8, #181818));
 
   /* Editor */
-  --editor-background: var(
-    --vscode-editor-background,
-    light-dark(#ffffff, #1e1e1e)
-  );
+  --editor-background: var(--vscode-editor-background,
+      light-dark(#ffffff, #1e1e1e));
 
   /* Input */
-  --input-foreground: var(
-    --vscode-input-foreground,
-    light-dark(#3b3b3b, #cccccc)
-  );
-  --input-border: var(
-    --vscode-editorWidget-border,
-    light-dark(#c8c8c8, #454545)
-  );
-  --input-placeholder-foreground: var(
-    --vscode-input-placeholderForeground,
-    light-dark(#767676, #989898)
-  );
-  --input-validation-error-background: var(
-    --vscode-inputValidation-errorBackground,
-    light-dark(#f2dede, #5a1d1d)
-  );
-  --input-validation-error-border: var(
-    --vscode-inputValidation-errorBorder,
-    #be1100
-  );
+  --input-foreground: var(--vscode-input-foreground,
+      light-dark(#3b3b3b, #cccccc));
+  --input-border: var(--vscode-editorWidget-border,
+      light-dark(#c8c8c8, #454545));
+  --input-placeholder-foreground: var(--vscode-input-placeholderForeground,
+      light-dark(#767676, #989898));
+  --input-validation-error-background: var(--vscode-inputValidation-errorBackground,
+      light-dark(#f2dede, #5a1d1d));
+  --input-validation-error-border: var(--vscode-inputValidation-errorBorder,
+      #be1100);
 
   /* Button */
-  --button-secondary-background: var(
-    --vscode-button-secondaryBackground,
-    light-dark(#e5e5e5, #313131)
-  );
-  --button-secondary-foreground: var(
-    --vscode-button-secondaryForeground,
-    light-dark(#3b3b3b, #cccccc)
-  );
-  --button-secondary-hover-background: var(
-    --vscode-button-secondaryHoverBackground,
-    light-dark(#cccccc, #3c3c3c)
-  );
+  --button-secondary-background: var(--vscode-button-secondaryBackground,
+      light-dark(#e5e5e5, #313131));
+  --button-secondary-foreground: var(--vscode-button-secondaryForeground,
+      light-dark(#3b3b3b, #cccccc));
+  --button-secondary-hover-background: var(--vscode-button-secondaryHoverBackground,
+      light-dark(#cccccc, #3c3c3c));
 
   /* Panel */
   --panel-border: var(--vscode-panel-border, light-dark(#e5e5e5, #2b2b2b));
 
   /* Text */
-  --text-link-foreground: var(
-    --vscode-textLink-foreground,
-    light-dark(#005fb8, #4daafc)
-  );
-  --text-link-active-foreground: var(
-    --vscode-textLink-activeForeground,
-    light-dark(#005fb8, #4daafc)
-  );
-  --text-code-block-background: var(
-    --vscode-textCodeBlock-background,
-    light-dark(#f8f8f8, #2b2b2b)
-  );
-  --text-blockquote-border: var(
-    --vscode-textBlockQuote-border,
-    light-dark(#e5e5e5, #616161)
-  );
-  --text-blockquote-foreground: var(
-    --vscode-textBlockQuote-foreground,
-    light-dark(#3b3b3b, #cccccc)
-  );
-  --text-blockquote-background: var(
-    --vscode-textBlockQuote-background,
-    light-dark(#f8f8f8, #2b2b2b)
-  );
+  --text-link-foreground: var(--vscode-textLink-foreground,
+      light-dark(#005fb8, #4daafc));
+  --text-link-active-foreground: var(--vscode-textLink-activeForeground,
+      light-dark(#005fb8, #4daafc));
+  --text-code-block-background: var(--vscode-textCodeBlock-background,
+      light-dark(#f8f8f8, #2b2b2b));
+  --text-blockquote-border: var(--vscode-textBlockQuote-border,
+      light-dark(#e5e5e5, #616161));
+  --text-blockquote-foreground: var(--vscode-textBlockQuote-foreground,
+      light-dark(#3b3b3b, #cccccc));
+  --text-blockquote-background: var(--vscode-textBlockQuote-background,
+      light-dark(#f8f8f8, #2b2b2b));
 
   /* Editor */
-  --editor-font-family: var(
-    --vscode-editor-font-family,
-    "SF Mono",
-    Monaco,
-    "Cascadia Code",
-    "Roboto Mono",
-    Consolas,
-    "Courier New",
-    monospace
-  );
-  --editor-line-number-foreground: var(
-    --vscode-editorLineNumber-foreground,
-    #6e7681
-  );
+  --editor-font-family: var(--vscode-editor-font-family,
+      "SF Mono",
+      Monaco,
+      "Cascadia Code",
+      "Roboto Mono",
+      Consolas,
+      "Courier New",
+      monospace);
+  --editor-line-number-foreground: var(--vscode-editorLineNumber-foreground,
+      #6e7681);
 
   /* Diff */
-  --diff-inserted-line-background: var(
-    --vscode-diffEditor-insertedLineBackground,
-    rgba(155, 185, 85, 0.2)
-  );
-  --diff-removed-line-background: var(
-    --vscode-diffEditor-removedLineBackground,
-    rgba(255, 0, 0, 0.2)
-  );
+  --diff-inserted-line-background: var(--vscode-diffEditor-insertedLineBackground,
+      rgba(155, 185, 85, 0.2));
+  --diff-removed-line-background: var(--vscode-diffEditor-removedLineBackground,
+      rgba(255, 0, 0, 0.2));
 
   /* Git Decorations */
-  --git-added-foreground: var(
-    --vscode-gitDecoration-addedResourceForeground,
-    light-dark(#587c0c, #89d185)
-  );
-  --git-deleted-foreground: var(
-    --vscode-gitDecoration-deletedResourceForeground,
-    light-dark(#ad0707, #f48771)
-  );
+  --git-added-foreground: var(--vscode-gitDecoration-addedResourceForeground,
+      light-dark(#587c0c, #89d185));
+  --git-deleted-foreground: var(--vscode-gitDecoration-deletedResourceForeground,
+      light-dark(#ad0707, #f48771));
 
   /* Scrollbar */
-  --scrollbar-slider-background: var(
-    --vscode-scrollbarSlider-background,
-    rgba(121, 121, 121, 0.4)
-  );
-  --scrollbar-slider-hover-background: var(
-    --vscode-scrollbarSlider-hoverBackground,
-    rgba(100, 100, 100, 0.7)
-  );
-  --scrollbar-slider-active-background: var(
-    --vscode-scrollbarSlider-activeBackground,
-    rgba(191, 191, 191, 0.4)
-  );
+  --scrollbar-slider-background: var(--vscode-scrollbarSlider-background,
+      rgba(121, 121, 121, 0.4));
+  --scrollbar-slider-hover-background: var(--vscode-scrollbarSlider-hoverBackground,
+      rgba(100, 100, 100, 0.7));
+  --scrollbar-slider-active-background: var(--vscode-scrollbarSlider-activeBackground,
+      rgba(191, 191, 191, 0.4));
 
   /* Card background - relative lightness reduction for perceptual consistency */
   --card-background: oklch(from var(--sidebar-background) calc(l * 0.98) c h);
 
   /* Fonts */
-  --font-family: var(
-    --vscode-font-family,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif
-  );
+  --font-family: var(--vscode-font-family,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif);
   --font-size: var(--vscode-font-size, 13px);
 
   /* ===========================================
@@ -185,15 +131,11 @@
   --hover-background-muted: var(--card-background);
 
   /* Borders */
-  --border-color: var(
-    --input-border,
-    color-mix(in srgb, var(--foreground) 20%, var(--sidebar-background))
-  );
-  --border-color-muted: color-mix(
-    in oklab,
-    var(--border-color) 80%,
-    var(--sidebar-background)
-  );
+  --border-color: var(--input-border,
+      color-mix(in srgb, var(--foreground) 20%, var(--sidebar-background)));
+  --border-color-muted: color-mix(in oklab,
+      var(--border-color) 80%,
+      var(--sidebar-background));
   --focus-border-color: var(--focus-border);
 
   /* Padding combinations */
@@ -634,7 +576,7 @@ body {
 .tool-call--pending {
   position: relative;
   border: 1px solid transparent;
-  background: 
+  background:
     linear-gradient(var(--input-background-muted), var(--input-background-muted)) padding-box,
     linear-gradient(90deg, color-mix(in srgb, var(--border-color) 75%, light-dark(white, black)) 0%, var(--border-color) 50%, color-mix(in srgb, var(--border-color) 75%, light-dark(white, black)) 100%) border-box;
   background-size: 100% 100%, 200% 100%;
@@ -646,6 +588,7 @@ body {
   0% {
     background-position: 0 0, 100% 0;
   }
+
   100% {
     background-position: 0 0, -100% 0;
   }
@@ -883,13 +826,11 @@ body {
 /* Tool Permission Prompt */
 .tool-permission-prompt {
   border-top: 1px solid var(--border-color-muted);
-  background: repeating-linear-gradient(
-    -45deg,
-    light-dark(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.25)),
-    light-dark(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.25)) 8px,
-    light-dark(rgba(255, 165, 0, 0.3), rgba(255, 165, 0, 0.15)) 8px,
-    light-dark(rgba(255, 165, 0, 0.3), rgba(255, 165, 0, 0.15)) 16px
-  );
+  background: repeating-linear-gradient(-45deg,
+      light-dark(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.25)),
+      light-dark(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.25)) 8px,
+      light-dark(rgba(255, 165, 0, 0.3), rgba(255, 165, 0, 0.15)) 8px,
+      light-dark(rgba(255, 165, 0, 0.3), rgba(255, 165, 0, 0.15)) 16px);
 }
 
 .tool-permission-message {
@@ -967,13 +908,11 @@ body {
   padding: var(--spacing-md);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: repeating-linear-gradient(
-    -45deg,
-    light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.2)),
-    light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.2)) 8px,
-    light-dark(rgba(255, 165, 0, 0.2), rgba(255, 165, 0, 0.1)) 8px,
-    light-dark(rgba(255, 165, 0, 0.2), rgba(255, 165, 0, 0.1)) 16px
-  );
+  background: repeating-linear-gradient(-45deg,
+      light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.2)),
+      light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.2)) 8px,
+      light-dark(rgba(255, 165, 0, 0.2), rgba(255, 165, 0, 0.1)) 8px,
+      light-dark(rgba(255, 165, 0, 0.2), rgba(255, 165, 0, 0.1)) 16px);
 }
 
 .permission-prompt__content {
@@ -1259,37 +1198,8 @@ body.vscode-high-contrast {
   font-size: var(--font-size-small);
 }
 
-/* New Session Button */
 .new-session-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: var(--spacing-md);
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background-color: transparent;
-  color: var(--input-foreground);
-  font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  cursor: pointer;
-  user-select: none;
-  flex: 0;
-  line-height: 1;
-  opacity: 0.7;
-}
-
-.new-session-button:hover {
-  background-color: var(--hover-background);
-  opacity: 1;
-}
-
-.new-session-button:focus-visible {
-  outline: 1px solid var(--focus-border);
-  outline-offset: 0;
-  border-color: transparent;
+  flex-shrink: 0;
 }
 
 /* Input Status Row */
@@ -1368,11 +1278,11 @@ body.vscode-high-contrast {
   word-wrap: break-word;
 }
 
-.message-text > *:first-child {
+.message-text>*:first-child {
   margin-top: 0;
 }
 
-.message-text > *:last-child {
+.message-text>*:last-child {
   margin-bottom: 0;
 }
 
@@ -1394,18 +1304,23 @@ body.vscode-high-contrast {
 .message-text h1 {
   font-size: 1.5em;
 }
+
 .message-text h2 {
   font-size: 1.3em;
 }
+
 .message-text h3 {
   font-size: 1.1em;
 }
+
 .message-text h4 {
   font-size: 1em;
 }
+
 .message-text h5 {
   font-size: 0.95em;
 }
+
 .message-text h6 {
   font-size: 0.9em;
 }
@@ -1420,7 +1335,7 @@ body.vscode-high-contrast {
   margin: 0.25em 0;
 }
 
-.message-text li > p {
+.message-text li>p {
   margin: 0.25em 0;
 }
 
@@ -1432,11 +1347,11 @@ body.vscode-high-contrast {
   background-color: var(--text-blockquote-background);
 }
 
-.message-text blockquote > *:first-child {
+.message-text blockquote>*:first-child {
   margin-top: 0;
 }
 
-.message-text blockquote > *:last-child {
+.message-text blockquote>*:last-child {
   margin-bottom: 0;
 }
 
@@ -1656,6 +1571,311 @@ body.vscode-high-contrast {
 }
 
 .editable-message__cancel:hover {
+  color: var(--foreground);
+  background-color: var(--hover-background);
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.icon-button:hover {
+  background-color: var(--hover-background);
+  opacity: 1;
+}
+
+/* Settings Drawer Styles */
+.settings-drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 2000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-drawer {
+  width: 280px;
+  height: 100%;
+  background-color: var(--sidebar-background);
+  border-left: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+  animation: drawer-slide-in 0.3s ease-out;
+}
+
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.settings-header {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1;
+  padding: var(--spacing-md);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.setting-item--row {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-item label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--description-foreground);
+}
+
+.settings-input {
+  width: 100%;
+  background-color: var(--input-background);
+  color: var(--input-foreground);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-base);
+  outline: none;
+}
+
+.settings-input:focus {
+  border-color: var(--focus-border);
+}
+
+.setting-description {
+  margin: 0;
+  font-size: 11px;
+  color: var(--description-foreground);
+  opacity: 0.8;
+}
+
+.settings-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: color-mix(in srgb, var(--sidebar-background) 80%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  animation: fade-in 0.3s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.loading-overlay__logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.loading-overlay__text {
+  font-size: 13px;
+  color: var(--foreground);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.loading-overlay__progress {
+  width: 140px;
+  height: 2px;
+  background-color: var(--border-color-muted);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loading-overlay__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 50%;
+  background-color: var(--focus-border);
+  border-radius: 1px;
+  animation: loading-slide 1.5s infinite ease-in-out;
+}
+
+@keyframes loading-slide {
+  0% {
+    left: -50%;
+    width: 30%;
+  }
+
+  50% {
+    width: 70%;
+  }
+
+  100% {
+    left: 100%;
+    width: 30%;
+  }
+}
+
+/* Status Banner - 非遮挡式顶部状态条 */
+.status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--notification-background, var(--sidebar-background));
+  border-bottom: 1px solid var(--panel-border);
+  font-size: var(--font-size-small);
+  color: var(--foreground);
+  gap: var(--spacing-md);
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.status-banner__content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.status-banner__spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-color-muted);
+  border-top-color: var(--focus-border);
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status-banner__icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.status-banner__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--description-foreground);
+}
+
+.status-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.status-banner__btn {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 3px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  line-height: 1.4;
+  user-select: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.status-banner__btn--primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  padding: 4px 12px;
+  font-weight: 500;
+}
+
+.status-banner__btn--primary:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.status-banner__btn--dismiss {
+  background-color: transparent;
+  color: var(--description-foreground);
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.status-banner__btn--dismiss:hover {
   color: var(--foreground);
   background-color: var(--hover-background);
 }

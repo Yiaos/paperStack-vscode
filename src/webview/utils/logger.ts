@@ -29,7 +29,7 @@ function log(level: "debug" | "info" | "error", message: string, data?: unknown)
   }
   
   // Always log to console as well for debugging
-  const prefix = `[OpenCode]`;
+  const prefix = `[PaperStack AI]`;
   const logData = data !== undefined ? [message, data] : [message];
   
   switch (level) {

@@ -20,6 +20,55 @@ import type {
 import type { SyncState, SessionStatus } from "./types";
 import { extractTextFromParts } from "./utils";
 
+// ======== Session 数据缓存 ========
+// 简单的 LRU 风格缓存，最多缓存 5 个会话的消息，有效期 60 秒
+const SESSION_CACHE_TTL_MS = 60000;
+const SESSION_CACHE_MAX_SIZE = 10;
+
+interface CachedSessionData {
+  data: SessionData;
+  timestamp: number;
+}
+
+const sessionDataCache = new Map<string, CachedSessionData>();
+
+function getCachedSessionData(sessionId: string): SessionData | null {
+  const cached = sessionDataCache.get(sessionId);
+  if (!cached) return null;
+
+  // 检查是否过期
+  if (Date.now() - cached.timestamp > SESSION_CACHE_TTL_MS) {
+    sessionDataCache.delete(sessionId);
+    return null;
+  }
+
+  return cached.data;
+}
+
+function setCachedSessionData(sessionId: string, data: SessionData): void {
+  // LRU: 如果超出最大容量，移除最早的条目
+  if (sessionDataCache.size >= SESSION_CACHE_MAX_SIZE) {
+    const oldestKey = sessionDataCache.keys().next().value;
+    if (oldestKey) sessionDataCache.delete(oldestKey);
+  }
+
+  sessionDataCache.set(sessionId, {
+    data,
+    timestamp: Date.now(),
+  });
+}
+
+/** 清除指定 session 的缓存（当 session 数据变化时调用） */
+export function invalidateSessionCache(sessionId: string): void {
+  sessionDataCache.delete(sessionId);
+}
+
+/** 清除所有会话缓存 */
+export function clearAllSessionCache(): void {
+  sessionDataCache.clear();
+}
+// ======== End of Session 数据缓存 ========
+
 /** API response for session.messages endpoint */
 interface MessageWithParts {
   info: SDKMessage;
@@ -75,12 +124,12 @@ function toSession(sdkSession: SDKSession): Session {
     parentID: sdkSession.parentID,
     time: sdkSession.time,
     summary: sdkSession.summary
-      ? { 
-          additions: sdkSession.summary.additions,
-          deletions: sdkSession.summary.deletions,
-          files: sdkSession.summary.files,
-          diffs: sdkSession.summary.diffs 
-        }
+      ? {
+        additions: sdkSession.summary.additions,
+        deletions: sdkSession.summary.deletions,
+        files: sdkSession.summary.files,
+        diffs: sdkSession.summary.diffs
+      }
       : undefined,
   };
 }
@@ -106,17 +155,33 @@ function toPermission(sdkPerm: SDKPermission): Permission {
 // System agents that should be hidden from the UI
 const HIDDEN_AGENTS = new Set(["compaction", "title", "summary"]);
 
-export async function fetchBootstrapData(ctx: BootstrapContext): Promise<BootstrapResult> {
-  const { client, sessionId, workspaceRoot } = ctx;
 
-  const [agentsRes, sessionsRes, sessionStatusRes] = await Promise.all([
+export interface GlobalData {
+  agents: Agent[];
+  sessions: Session[];
+  sessionStatusMap: { [sessionID: string]: SessionStatus };
+  permissionMap: { [sessionID: string]: Permission[] };
+}
+
+export interface SessionData {
+  messageList: Message[];
+  partMap: { [messageID: string]: MessagePart[] };
+  contextInfo: ContextInfo | null;
+  fileChanges: FileChangesInfo | null;
+}
+
+export async function fetchGlobalData(ctx: BootstrapContext): Promise<GlobalData> {
+  const { client, workspaceRoot } = ctx;
+
+  const [agentsRes, sessionsRes, sessionStatusRes, permissionsRes] = await Promise.all([
     client.app.agents(),
     client.session.list(workspaceRoot ? { directory: workspaceRoot } : undefined),
     client.session.status(workspaceRoot ? { directory: workspaceRoot } : undefined),
+    client.permission.list(workspaceRoot ? { directory: workspaceRoot } : undefined)
   ]);
 
   const agents = (agentsRes?.data ?? [])
-    .filter((a): a is SDKAgent => 
+    .filter((a): a is SDKAgent =>
       (a.mode === "primary" || a.mode === "all") && !HIDDEN_AGENTS.has(a.name)
     )
     .map(toAgent);
@@ -126,31 +191,37 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
     .map(toSession)
     .sort((a, b) => a.id.localeCompare(b.id));
 
+  const sessionStatusMap: { [sessionID: string]: SessionStatus } = sessionStatusRes?.data ?? {};
+
+  const permissionMap: { [sessionID: string]: Permission[] } = {};
+  const permissions = permissionsRes?.data ?? [];
+  for (const sdkPerm of permissions) {
+    const perm = toPermission(sdkPerm as SDKPermission);
+    if (!permissionMap[perm.sessionID]) {
+      permissionMap[perm.sessionID] = [];
+    }
+    permissionMap[perm.sessionID].push(perm);
+  }
+
+  return { agents, sessions, sessionStatusMap, permissionMap };
+}
+
+export async function fetchSessionData(ctx: BootstrapContext): Promise<SessionData> {
+  const { client, sessionId } = ctx;
+
+  // 先检查缓存
+  if (sessionId) {
+    const cached = getCachedSessionData(sessionId);
+    if (cached) {
+      console.debug("[Bootstrap] Using cached session data for:", sessionId);
+      return cached;
+    }
+  }
+
   let messageList: Message[] = [];
   let contextInfo: ContextInfo | null = null;
   let fileChanges: FileChangesInfo | null = null;
   const partMap: { [messageID: string]: MessagePart[] } = {};
-  const permissionMap: { [sessionID: string]: Permission[] } = {};
-  const sessionStatusMap: { [sessionID: string]: SessionStatus } = sessionStatusRes?.data ?? {};
-
-  // Fetch pending permissions
-  try {
-    const permissionsRes = await client.permission.list(
-      workspaceRoot ? { directory: workspaceRoot } : undefined
-    );
-    const permissions = permissionsRes?.data ?? [];
-    
-    // Group permissions by sessionID
-    for (const sdkPerm of permissions) {
-      const perm = toPermission(sdkPerm as SDKPermission);
-      if (!permissionMap[perm.sessionID]) {
-        permissionMap[perm.sessionID] = [];
-      }
-      permissionMap[perm.sessionID].push(perm);
-    }
-  } catch (err) {
-    console.error("[Sync] Failed to load permissions during bootstrap:", err);
-  }
 
   if (sessionId) {
     try {
@@ -169,7 +240,6 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
           const messageId = msgInfo.id;
           const role = msgInfo.role;
 
-          // Filter parts for user messages (exclude synthetic/ignored text parts)
           let normalizedParts = parts;
           if (role === "user") {
             normalizedParts = parts.filter((p) => {
@@ -178,7 +248,6 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
             });
           }
 
-          // Store parts in partMap (single source of truth)
           if (normalizedParts.length > 0) {
             partMap[messageId] = normalizedParts
               .map(toPart)
@@ -195,11 +264,9 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
         .sort((a, b) => a.id.localeCompare(b.id));
 
       const session = sessionRes?.data;
-      
-      // Extract file changes from session summary
+
       if (session?.summary) {
         if (session.summary.diffs && session.summary.diffs.length > 0) {
-          // Use detailed diffs if available
           const diffs = session.summary.diffs;
           fileChanges = {
             fileCount: diffs.length,
@@ -207,7 +274,6 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
             deletions: diffs.reduce((sum, d) => sum + (d.deletions || 0), 0),
           };
         } else if (session.summary.files > 0) {
-          // Fallback to summary-level aggregates
           fileChanges = {
             fileCount: session.summary.files,
             additions: session.summary.additions,
@@ -216,7 +282,6 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
         }
       }
 
-      // Extract context info from the last assistant message
       const lastAssistant = [...rawMessages]
         .reverse()
         .find((raw) => raw.info.role === "assistant");
@@ -225,10 +290,10 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
         const assistantMsg = lastAssistant.info as AssistantMessage;
         const tokens = assistantMsg.tokens;
         const usedTokens =
-          tokens.input + 
-          tokens.output + 
+          tokens.input +
+          tokens.output +
           tokens.reasoning +
-          tokens.cache.read + 
+          tokens.cache.read +
           tokens.cache.write;
         if (usedTokens > 0) {
           const limit = 200000;
@@ -244,7 +309,56 @@ export async function fetchBootstrapData(ctx: BootstrapContext): Promise<Bootstr
     }
   }
 
-  return { agents, sessions, messageList, partMap, permissionMap, sessionStatusMap, contextInfo, fileChanges };
+  const result = { messageList, partMap, contextInfo, fileChanges };
+
+  // 存入缓存
+  if (sessionId) {
+    setCachedSessionData(sessionId, result);
+  }
+
+  return result;
+}
+
+export async function fetchBootstrapData(ctx: BootstrapContext): Promise<BootstrapResult> {
+  const [globalData, sessionData] = await Promise.all([
+    fetchGlobalData(ctx),
+    fetchSessionData(ctx)
+  ]);
+
+  return {
+    ...globalData,
+    ...sessionData
+  };
+}
+
+
+export function commitGlobalData(
+  data: GlobalData,
+  setStore: SetStoreFunction<SyncState>
+): void {
+  batch(() => {
+    setStore("agents", data.agents);
+    setStore("sessions", data.sessions);
+    setStore("sessionStatus", reconcile(data.sessionStatusMap));
+    setStore("permission", reconcile(data.permissionMap));
+  });
+}
+
+export function commitSessionData(
+  data: SessionData,
+  sessionId: string | null,
+  setStore: SetStoreFunction<SyncState>
+): void {
+  batch(() => {
+    if (sessionId) {
+      setStore("message", sessionId, data.messageList);
+    }
+    // Replace partMap entirely for the new session to prevent stale data accumulation
+    setStore("part", reconcile(data.partMap));
+
+    setStore("contextInfo", data.contextInfo);
+    setStore("fileChanges", data.fileChanges);
+  });
 }
 
 export function commitBootstrapData(
@@ -253,16 +367,8 @@ export function commitBootstrapData(
   setStore: SetStoreFunction<SyncState>
 ): void {
   batch(() => {
-    setStore("agents", data.agents);
-    setStore("sessions", data.sessions);
-    if (sessionId) {
-      setStore("message", sessionId, data.messageList);
-    }
-    setStore("part", reconcile(data.partMap));
-    setStore("permission", reconcile(data.permissionMap));
-    setStore("sessionStatus", reconcile(data.sessionStatusMap));
-    setStore("contextInfo", data.contextInfo);
-    setStore("fileChanges", data.fileChanges);
+    commitGlobalData(data, setStore);
+    commitSessionData(data, sessionId, setStore);
     setStore("status", { status: "connected" });
   });
 }
