@@ -86,6 +86,7 @@ export function applyEvent(event: Event, ctx: EventHandlerContext): void {
         id: info.id,
         type: info.role,
         text: nextText,
+        time: info.time,
       };
 
       messageToSession.set(info.id, sessionId);

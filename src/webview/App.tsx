@@ -18,7 +18,7 @@ export interface QueuedMessage {
   attachments: SelectionAttachment[];
 }
 
-// In-flight message tracking for the outbox
+// In-flight message tracking for the outbox (used for queue draining)
 interface InFlightMessage {
   messageID: string;
   sessionId: string;
