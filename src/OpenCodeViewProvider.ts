@@ -8,7 +8,7 @@ import { SseClient, SseConnectionState, SseEvent, SseLogger } from './transport/
 const LAST_AGENT_KEY = 'opencode.lastUsedAgent';
 
 export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'opencode.chatView';
+  public static readonly viewType = 'paperstack.ai.chatView';
   private _view?: vscode.WebviewView;
   private _sseClients = new Map<string, SseClient>();
   private _proxyFetchControllers = new Map<string, AbortController>();

@@ -380,6 +380,10 @@ function createSync() {
 
   const getParts = (messageId: string) => store.part[messageId] ?? [];
   const sessionStatus = (sessionId: string) => store.sessionStatus[sessionId] ?? null;
+  const isReady = () => {
+    if (!sdk.isReady()) return false;
+    return store.status.status === "connected" || store.status.status === "bootstrapping";
+  };
 
   return {
     messages,
@@ -405,7 +409,7 @@ function createSync() {
     reconnect,
     onSessionIdle,
 
-    isReady: sdk.isReady,
+    isReady,
     workspaceRoot: sdk.workspaceRoot,
   };
 }

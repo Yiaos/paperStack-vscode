@@ -155,6 +155,45 @@ function toPermission(sdkPerm: SDKPermission): Permission {
 // System agents that should be hidden from the UI
 const HIDDEN_AGENTS = new Set(["compaction", "title", "summary"]);
 
+function normalizeDirectoryPath(directory: string): string {
+  return directory.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+function deriveWorktreeParentDirectory(directory?: string): string | null {
+  if (!directory) return null;
+  const normalized = normalizeDirectoryPath(directory);
+  const marker = "/.worktrees/";
+  const markerIndex = normalized.lastIndexOf(marker);
+  if (markerIndex <= 0) return null;
+  return normalized.slice(0, markerIndex);
+}
+
+type ScopedData = {
+  sessionsRes: { data?: SDKSession[] };
+  sessionStatusRes: { data?: { [key: string]: any } };
+  permissionsRes: { data?: any[] };
+};
+
+async function fetchScopedData(
+  client: BootstrapContext["client"],
+  directory?: string
+): Promise<ScopedData> {
+  const opts = directory ? { directory } : undefined;
+  const [sessionsRes, sessionStatusRes, permissionsRes] = await Promise.all([
+    client.session.list(opts),
+    client.session.status(opts),
+    client.permission.list(opts),
+  ]);
+  return { sessionsRes, sessionStatusRes, permissionsRes };
+}
+
+function hasScopedData(data: ScopedData): boolean {
+  const sessions = data.sessionsRes?.data ?? [];
+  const statuses = data.sessionStatusRes?.data ?? {};
+  const permissions = data.permissionsRes?.data ?? [];
+  return sessions.length > 0 || Object.keys(statuses).length > 0 || permissions.length > 0;
+}
+
 
 export interface GlobalData {
   agents: Agent[];
@@ -173,12 +212,26 @@ export interface SessionData {
 export async function fetchGlobalData(ctx: BootstrapContext): Promise<GlobalData> {
   const { client, workspaceRoot } = ctx;
 
-  const [agentsRes, sessionsRes, sessionStatusRes, permissionsRes] = await Promise.all([
-    client.app.agents(),
-    client.session.list(workspaceRoot ? { directory: workspaceRoot } : undefined),
-    client.session.status(workspaceRoot ? { directory: workspaceRoot } : undefined),
-    client.permission.list(workspaceRoot ? { directory: workspaceRoot } : undefined)
-  ]);
+  const agentsPromise = client.app.agents();
+
+  let scopedData = await fetchScopedData(client, workspaceRoot);
+
+  const fallbackDirectory = deriveWorktreeParentDirectory(workspaceRoot);
+  if (
+    fallbackDirectory &&
+    fallbackDirectory !== workspaceRoot &&
+    !hasScopedData(scopedData)
+  ) {
+    const fallbackData = await fetchScopedData(client, fallbackDirectory);
+    if (hasScopedData(fallbackData)) {
+      scopedData = fallbackData;
+    }
+  }
+
+  const agentsRes = await agentsPromise;
+  const sessionsRes = scopedData.sessionsRes;
+  const sessionStatusRes = scopedData.sessionStatusRes;
+  const permissionsRes = scopedData.permissionsRes;
 
   const agents = (agentsRes?.data ?? [])
     .filter((a): a is SDKAgent =>

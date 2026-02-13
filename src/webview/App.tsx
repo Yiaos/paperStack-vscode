@@ -218,17 +218,10 @@ function App() {
   });
 
   const sessionsToShow = createMemo(() => {
-    const root = sync.workspaceRoot();
-    const currentId = sync.currentSessionId();
-
     return sessions()
       .filter(s => {
         // Only list sessions with primary agents (no parentID)
         if (s.parentID) return false;
-
-        // Filter to sessions in the same repo/worktree
-        if (root && s.directory !== root) return false;
-
         return true;
       })
       // Sort by edited time (updated) instead of started time (created)

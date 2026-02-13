@@ -16,7 +16,10 @@
     "Other",
     "AI"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:paperstack.ai.chatView",
+    "onCommand:paperstack.ai.addSelectionToPrompt"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -32,7 +35,7 @@
       "paperstack-ai": [
         {
           "type": "webview",
-          "id": "opencode.chatView",
+          "id": "paperstack.ai.chatView",
           "name": "",
           "icon": "media/logo.png"
         }
@@ -40,15 +43,15 @@
     },
     "commands": [
       {
-        "command": "opencode.addSelectionToPrompt",
+        "command": "paperstack.ai.addSelectionToPrompt",
         "title": "Add Selection to Prompt",
-        "category": "OpenCode"
+        "category": "PaperStack"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "opencode.addSelectionToPrompt",
+          "command": "paperstack.ai.addSelectionToPrompt",
           "when": "editorTextFocus",
           "group": "navigation@9"
         }

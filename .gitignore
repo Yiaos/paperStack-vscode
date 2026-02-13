@@ -12,3 +12,5 @@ OpenCode.log
 # Playwright test artifacts
 test-results/
 playwright-report/
+tests/.sandbox/
+tests/.sandbox-workers/

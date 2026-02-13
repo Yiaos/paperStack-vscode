@@ -139,6 +139,15 @@ describe("HostMessageSchema", () => {
     expect(HostMessageSchema.parse(msg)).toEqual(msg);
   });
 
+  it("parses server-url message", () => {
+    const msg = {
+      type: "server-url",
+      serverUrl: "http://127.0.0.1:40960",
+      workspaceRoot: "/home/user/project",
+    };
+    expect(HostMessageSchema.parse(msg)).toEqual(msg);
+  });
+
   it("parses error message", () => {
     const msg = { type: "error", message: "Something went wrong" };
     expect(HostMessageSchema.parse(msg)).toEqual(msg);

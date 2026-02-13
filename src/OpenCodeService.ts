@@ -47,10 +47,6 @@ export class OpenCodeService {
     const logger = getLogger();
     const maxRetries = 10;
 
-    // 添加堆栈追踪用于诊断双进程问题
-    const stack = new Error().stack;
-    logger.info(`[DEBUG] _doInitialize called from:\n${stack}`);
-
     const prevCwd = process.cwd();
     const shouldChdir =
       Boolean(workspaceRoot) && fs.existsSync(workspaceRoot as string);

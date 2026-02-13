@@ -2,13 +2,14 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  timeout: 180_000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:5199",
+    baseURL: "http://127.0.0.1:53199",
     trace: "on-first-retry",
   },
   projects: [
@@ -31,9 +32,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev --port 5199 --strictPort",
-    url: "http://localhost:5199/src/webview/index.html",
-    reuseExistingServer: !process.env.CI,
+    command: "pnpm dev --host 127.0.0.1 --port 53199 --strictPort",
+    port: 53199,
+    reuseExistingServer: false,
     timeout: 120000,
   },
 });

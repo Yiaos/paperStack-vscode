@@ -53,6 +53,11 @@ PaperStack 致力于解决学术写作中工具链割裂和上下文缺失的痛
 
 插件采用 **Webview (SolidJS) <-> Extension Host (Node.js) <-> OpenCode Server (Bun)** 的三层架构。Webview 负责展示精美的交互界面，Extension Host 管理本地服务的生命周期并代理跨域请求，OpenCode Server 则处理核心的 AI 逻辑。
 
+## ⚠️ 已知冲突与排查
+
+- 如果你同时安装了其他 OpenCode GUI 类插件（例如 `tanishqkancharla.opencode-vscode`），旧版本可能因为 **view/command id 重名** 导致两个 `opencode serve` 进程被同时拉起（常见表现为 `--port=0` 与 `--port=40960` 并存）。
+- 本插件已将内部 id 命名空间化为 `paperstack.ai.chatView` 与 `paperstack.ai.addSelectionToPrompt`，用于避免与其他插件发生冲突。
+
 ## 📂 项目结构
 
 ```

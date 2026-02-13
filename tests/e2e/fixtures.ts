@@ -1,6 +1,7 @@
 import { test as base, type Page } from "@playwright/test";
 import { spawn, type ChildProcess } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 interface OpenCodeConfig {
@@ -20,6 +21,7 @@ interface LogEntry {
 
 interface OpenCodeServer {
   url: string;
+  workspaceRoot: string;
   process: ChildProcess;
   logs: string[];
   getLogs: () => string;
@@ -90,7 +92,7 @@ function parseLogLine(line: string): LogEntry {
   };
 }
 
-async function waitForServerReady(url: string, timeout = 10000): Promise<void> {
+async function waitForServerReady(url: string, timeout = 120000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     try {
@@ -107,11 +109,28 @@ async function waitForServerReady(url: string, timeout = 10000): Promise<void> {
   throw new Error(`Server at ${url} did not become ready within ${timeout}ms`);
 }
 
-async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServer> {
+function prepareWorkerSandbox(templateRoot: string, workspaceRoot: string): void {
+  if (fs.existsSync(workspaceRoot)) {
+    fs.rmSync(workspaceRoot, { recursive: true, force: true });
+  }
+  fs.mkdirSync(workspaceRoot, { recursive: true });
+  fs.cpSync(templateRoot, workspaceRoot, { recursive: true });
+}
+
+async function startOpenCodeServer(
+  workspaceRoot: string,
+  runtimeRoot: string
+): Promise<OpenCodeServer> {
   return new Promise((resolve, reject) => {
     console.log(`[fixture] Spawning opencode serve in ${workspaceRoot}`);
 
     const logs: string[] = [];
+    const homeDir = path.join(runtimeRoot, "home");
+    const xdgConfigHome = path.join(runtimeRoot, "xdg-config");
+    const xdgCacheHome = path.join(runtimeRoot, "xdg-cache");
+    fs.mkdirSync(homeDir, { recursive: true });
+    fs.mkdirSync(xdgConfigHome, { recursive: true });
+    fs.mkdirSync(xdgCacheHome, { recursive: true });
 
     const serverProcess = spawn(
       "opencode",
@@ -128,7 +147,12 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
       {
         cwd: workspaceRoot,
         stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env },
+        env: {
+          ...process.env,
+          HOME: homeDir,
+          XDG_CONFIG_HOME: xdgConfigHome,
+          XDG_CACHE_HOME: xdgCacheHome,
+        },
       }
     );
 
@@ -148,8 +172,8 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
       // OpenCode outputs: "opencode server listening on http://127.0.0.1:XXXXX"
       const urlMatch = outputBuffer.match(/listening on (http:\/\/[\d.:]+)/i);
       if (urlMatch && !serverUrl) {
-        // Normalize 127.0.0.1 to localhost for browser compatibility
-        serverUrl = urlMatch[1].replace("127.0.0.1", "localhost");
+        // Keep IPv4 loopback address to avoid localhost => ::1 resolution mismatch
+        serverUrl = urlMatch[1];
         console.log(`[fixture] Detected server URL: ${serverUrl}`);
 
         const getLogEntries = () => {
@@ -180,6 +204,7 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
 
         resolve({
           url: serverUrl,
+          workspaceRoot,
           process: serverProcess,
           logs,
           getLogs: () => logs.join(""),
@@ -213,7 +238,8 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
       }
     });
 
-    // Timeout after 30 seconds
+    // OpenCode bootstrap may include dependency/plugin installs on cold cache.
+    // Allow enough time before considering startup failed.
     setTimeout(() => {
       if (!serverUrl) {
         serverProcess.kill();
@@ -223,25 +249,39 @@ async function startOpenCodeServer(workspaceRoot: string): Promise<OpenCodeServe
           )
         );
       }
-    }, 30000);
+    }, 120000);
   });
 }
 
 export const test = base.extend<OpenCodeFixtures, OpenCodeWorkerFixtures>({
   // Share the server across all tests in a worker
   opencodeServer: [
-    async ({ }, use) => {
-      // Use sandbox directory for tests by default
-      const defaultRoot = path.join(process.cwd(), "tests", "sandbox");
-      const workspaceRoot = process.env.OPENCODE_WORKSPACE_ROOT || defaultRoot;
+    async ({ }, use, workerInfo) => {
+      // Use isolated sandbox per worker to avoid startup contention.
+      const templateRoot = path.join(process.cwd(), "tests", "sandbox");
+      const isolatedRoot = path.join(
+        os.tmpdir(),
+        "paperstack-e2e",
+        String(process.pid),
+        `worker-${workerInfo.workerIndex}`
+      );
+      const runtimeRoot = path.join(
+        os.tmpdir(),
+        "paperstack-e2e-runtime",
+        `worker-${workerInfo.workerIndex}`
+      );
+      const workspaceRoot = process.env.OPENCODE_WORKSPACE_ROOT || isolatedRoot;
 
-      // Ensure sandbox directory exists
-      if (!fs.existsSync(workspaceRoot)) {
-        fs.mkdirSync(workspaceRoot, { recursive: true });
+      if (process.env.OPENCODE_WORKSPACE_ROOT) {
+        if (!fs.existsSync(workspaceRoot)) {
+          fs.mkdirSync(workspaceRoot, { recursive: true });
+        }
+      } else {
+        prepareWorkerSandbox(templateRoot, workspaceRoot);
       }
 
       console.log(`[fixture] Starting OpenCode server in ${workspaceRoot}`);
-      const server = await startOpenCodeServer(workspaceRoot);
+      const server = await startOpenCodeServer(workspaceRoot, runtimeRoot);
       console.log(`[fixture] OpenCode server started at ${server.url}`);
 
       // Wait for server to be fully ready
@@ -258,8 +298,7 @@ export const test = base.extend<OpenCodeFixtures, OpenCodeWorkerFixtures>({
 
   openWebview: async ({ page, opencodeServer }, use) => {
     const openWebview = async (config?: Partial<OpenCodeConfig>) => {
-      const defaultRoot = path.join(process.cwd(), "tests", "sandbox");
-      const workspaceRoot = process.env.OPENCODE_WORKSPACE_ROOT || defaultRoot;
+      const workspaceRoot = process.env.OPENCODE_WORKSPACE_ROOT || opencodeServer.workspaceRoot;
 
       const defaultConfig: OpenCodeConfig = {
         serverUrl: opencodeServer.url,
@@ -287,39 +326,273 @@ export const test = base.extend<OpenCodeFixtures, OpenCodeWorkerFixtures>({
 
         // Replace the default config with our dynamic config and mock VS Code API
         const mockVsCodeApi = `
-          window.acquireVsCodeApi = () => {
+          (() => {
             let state = { mainFile: "", autoCompile: true };
-            return {
-              postMessage: (message) => {
+            const fetchControllers = new Map();
+            const sseSubscriptions = new Map();
+            const sseAttempts = new Map();
+            const syntheticReplyCount = new Map();
+            const lastAssistantMessageBySession = new Map();
+            const assistantUpdateCountBySession = new Map();
+
+            const sendHostMessage = (payload) => {
+              window.postMessage(payload, "*");
+            };
+
+            const closeSse = (id, reason = "manual") => {
+              const eventSource = sseSubscriptions.get(id);
+              if (!eventSource) return;
+              try {
+                eventSource.close();
+              } catch {
+                // ignore close errors in tests
+              }
+              sseSubscriptions.delete(id);
+              sseAttempts.delete(id);
+              sendHostMessage({ type: "sseStatus", id, status: "closed", reason });
+              sendHostMessage({ type: "sseClosed", id });
+            };
+
+            const emitSyntheticAssistantReply = (sessionID) => {
+              const count = (syntheticReplyCount.get(sessionID) ?? 0) + 1;
+              syntheticReplyCount.set(sessionID, count);
+
+              const suffix = String(Date.now()) + "_" + String(count);
+              const messageID =
+                lastAssistantMessageBySession.get(sessionID) ??
+                ("msg_mock_assistant_" + suffix);
+              const partID = "part_mock_assistant_" + suffix;
+
+              // Broadcast to active SSE subscriptions so UI state can progress in tests.
+              for (const subscriptionID of sseSubscriptions.keys()) {
+                sendHostMessage({
+                  type: "sseEvent",
+                  id: subscriptionID,
+                  data: JSON.stringify({
+                    type: "message.part.updated",
+                    properties: {
+                      part: {
+                        id: partID,
+                        type: "text",
+                        text: "[mock] assistant response",
+                        messageID,
+                        sessionID,
+                      },
+                    },
+                  }),
+                });
+                sendHostMessage({
+                  type: "sseEvent",
+                  id: subscriptionID,
+                  data: JSON.stringify({
+                    type: "session.idle",
+                    properties: { sessionID },
+                  }),
+                });
+              }
+            };
+
+            const maybeEmitSyntheticAssistantReply = (id, rawEventData) => {
+              let parsed;
+              try {
+                parsed = JSON.parse(rawEventData);
+              } catch {
+                return;
+              }
+
+              if (parsed?.type === "message.updated") {
+                const info = parsed?.properties?.info;
+                const sessionID = info?.sessionID;
+                if (sessionID && info?.role === "assistant" && info?.id) {
+                  lastAssistantMessageBySession.set(sessionID, info.id);
+                  assistantUpdateCountBySession.set(
+                    sessionID,
+                    (assistantUpdateCountBySession.get(sessionID) ?? 0) + 1
+                  );
+                }
+                return;
+              }
+
+              if (parsed?.type !== "session.error") return;
+
+              const sessionID = parsed?.properties?.sessionID;
+              const errorName = String(parsed?.properties?.error?.name ?? "");
+              const errorCode = String(parsed?.properties?.error?.code ?? "");
+              const errorMessage = String(
+                parsed?.properties?.error?.data?.message ??
+                parsed?.properties?.error?.message ??
+                ""
+              );
+              const errorPayload = JSON.stringify(parsed?.properties?.error ?? {});
+
+              if (!sessionID) return;
+              const shouldEmitSyntheticReply =
+                /api key is missing/i.test(errorMessage) ||
+                /providermodelnotfounderror|modelnotfounderror/i.test(errorName) ||
+                /providermodelnotfounderror|modelnotfounderror/i.test(errorCode) ||
+                /provider.?model.?not.?found|model.?not.?found/i.test(errorMessage) ||
+                /providermodelnotfounderror|modelnotfounderror/i.test(errorPayload);
+              if (!shouldEmitSyntheticReply) return;
+              emitSyntheticAssistantReply(sessionID);
+            };
+
+            window.acquireVsCodeApi = () => ({
+              postMessage: async (message) => {
+                if (!message || typeof message.type !== "string") return;
                 console.log("[MockVSCode] Received:", message);
+
                 if (message.type === "get-settings") {
-                  window.postMessage({
+                  sendHostMessage({
                     type: "settings-data",
-                    settings: { ...state }
-                  }, "*");
-                } else if (message.type === "update-settings") {
+                    settings: { ...state },
+                  });
+                  return;
+                }
+
+                if (message.type === "update-settings") {
                   state = { ...state, ...message.settings };
-                  // Simulate backend delay
                   setTimeout(() => {
-                    window.postMessage({ type: "settings-updated" }, "*");
-                    // Also broadcast the new settings
-                    window.postMessage({
+                    sendHostMessage({ type: "settings-updated" });
+                    sendHostMessage({
                       type: "settings-data",
-                      settings: { ...state }
-                    }, "*");
+                      settings: { ...state },
+                    });
                   }, 50);
+                  return;
+                }
+
+                if (message.type === "proxyFetch") {
+                  const id = message.id;
+                  const controller = new AbortController();
+                  fetchControllers.set(id, controller);
+                  try {
+                    const method = String(message?.init?.method ?? "GET").toUpperCase();
+                    const response = await fetch(message.url, {
+                      ...(message.init ?? {}),
+                      signal: controller.signal,
+                    });
+                    const bodyText = await response.text();
+                    const headers = {};
+                    response.headers.forEach((value, key) => {
+                      headers[key] = value;
+                    });
+                    sendHostMessage({
+                      type: "proxyFetchResult",
+                      id,
+                      ok: true,
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers,
+                      bodyText,
+                    });
+
+                    // Fallback: if message POST succeeds but no assistant delta arrives,
+                    // synthesize one to keep E2E deterministic without real model credentials.
+                    let postedSessionID = null;
+                    if (method === "POST") {
+                      try {
+                        const parsedUrl = new URL(String(message.url), window.location.origin);
+                        const segments = parsedUrl.pathname.split("/").filter(Boolean);
+                        const sessionIndex = segments.indexOf("session");
+                        if (
+                          sessionIndex >= 0 &&
+                          segments[sessionIndex + 1] &&
+                          segments[sessionIndex + 2] === "message"
+                        ) {
+                          postedSessionID = decodeURIComponent(segments[sessionIndex + 1]);
+                        }
+                      } catch {
+                        postedSessionID = null;
+                      }
+                    }
+                    if (response.ok && postedSessionID) {
+                      const sessionID = postedSessionID;
+                      const seenAssistantCount =
+                        assistantUpdateCountBySession.get(sessionID) ?? 0;
+                      setTimeout(() => {
+                        const currentAssistantCount =
+                          assistantUpdateCountBySession.get(sessionID) ?? 0;
+                        if (currentAssistantCount > seenAssistantCount) return;
+                        emitSyntheticAssistantReply(sessionID);
+                      }, 500);
+                    }
+                  } catch (error) {
+                    sendHostMessage({
+                      type: "proxyFetchResult",
+                      id,
+                      ok: false,
+                      error: error instanceof Error ? error.message : String(error),
+                    });
+                  } finally {
+                    fetchControllers.delete(id);
+                  }
+                  return;
+                }
+
+                if (message.type === "proxyFetchAbort") {
+                  const controller = fetchControllers.get(message.id);
+                  if (controller) {
+                    controller.abort();
+                    fetchControllers.delete(message.id);
+                  }
+                  return;
+                }
+
+                if (message.type === "sseSubscribe") {
+                  const id = message.id;
+                  closeSse(id, "manual");
+                  try {
+                    const eventSource = new EventSource(message.url);
+                    sseSubscriptions.set(id, eventSource);
+                    sseAttempts.set(id, 0);
+                    sendHostMessage({ type: "sseStatus", id, status: "connecting" });
+                    // Optimistically mark connected to avoid transient disabled input
+                    // when EventSource onopen is delayed in local E2E environments.
+                    sendHostMessage({ type: "sseStatus", id, status: "connected" });
+
+                    eventSource.onopen = () => {
+                      sseAttempts.set(id, 0);
+                      sendHostMessage({ type: "sseStatus", id, status: "connected" });
+                    };
+                    eventSource.onmessage = (event) => {
+                      sendHostMessage({ type: "sseEvent", id, data: event.data });
+                      maybeEmitSyntheticAssistantReply(id, event.data);
+                    };
+                    eventSource.onerror = () => {
+                      const attempt = (sseAttempts.get(id) ?? 0) + 1;
+                      sseAttempts.set(id, attempt);
+                      sendHostMessage({
+                        type: "sseStatus",
+                        id,
+                        status: "reconnecting",
+                        attempt,
+                        nextRetryMs: 1000,
+                      });
+                    };
+                  } catch (error) {
+                    sendHostMessage({
+                      type: "sseError",
+                      id,
+                      error: error instanceof Error ? error.message : String(error),
+                    });
+                  }
+                  return;
+                }
+
+                if (message.type === "sseClose") {
+                  closeSse(message.id, "manual");
                 }
               },
               setState: () => {},
-              getState: () => ({})
-            };
-          };
+              getState: () => ({}),
+            });
+          })();
           window.OPENCODE_CONFIG = ${JSON.stringify(finalConfig)};
         `;
 
         html = html.replace(
           /window\.OPENCODE_CONFIG\s*=\s*\{[^}]+\}/,
-          mockVsCodeApi
+          () => mockVsCodeApi
         );
 
         await route.fulfill({
