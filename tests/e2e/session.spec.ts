@@ -9,7 +9,9 @@ test.describe("Session Management", () => {
   test("should be able to create a new session", async ({ openWebview }) => {
     const page = await openWebview();
 
-    const newSessionButton = page.getByRole("button", { name: "New session" });
+    const newSessionButton = page.getByRole("button", {
+      name: /^(New session|新建会话)$/,
+    });
     await expect(newSessionButton).toBeVisible();
     await newSessionButton.click();
 

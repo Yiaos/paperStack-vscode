@@ -304,4 +304,85 @@ describe("Frontend Bootstrap", () => {
     expect(result.sessions).toHaveLength(0);
     expect(result.permissionMap).toEqual({});
   });
+
+  it("falls back to repo directory when worktree scoped data is empty", async () => {
+    const requestedDirectories: string[] = [];
+
+    const ctx: BootstrapContext = {
+      client: {
+        app: {
+          agents: async () => ({ data: [] }),
+        },
+        session: {
+          list: async (opts?: { directory?: string }) => {
+            const dir = opts?.directory ?? "";
+            requestedDirectories.push(`list:${dir}`);
+            if (dir === "/repo/.worktrees/feature-a") {
+              return { data: [] };
+            }
+            if (dir === "/repo") {
+              return {
+                data: [
+                  {
+                    id: "session-parent",
+                    title: "Parent Session",
+                    projectID: "proj-1",
+                    directory: "/repo",
+                    parentID: undefined,
+                    time: { created: Date.now(), updated: Date.now() },
+                  },
+                ] as SDKSession[],
+              };
+            }
+            return { data: [] };
+          },
+          status: async (opts?: { directory?: string }) => {
+            const dir = opts?.directory ?? "";
+            requestedDirectories.push(`status:${dir}`);
+            if (dir === "/repo") {
+              return { data: { "session-parent": { type: "idle" } } };
+            }
+            return { data: {} };
+          },
+          messages: async () => ({ data: [] }),
+          get: async () => ({ data: undefined }),
+        },
+        permission: {
+          list: async (opts?: { directory?: string }) => {
+            const dir = opts?.directory ?? "";
+            requestedDirectories.push(`permission:${dir}`);
+            if (dir === "/repo") {
+              return {
+                data: [
+                  {
+                    id: "perm-1",
+                    permission: "read",
+                    sessionID: "session-parent",
+                    metadata: {},
+                  },
+                ],
+              };
+            }
+            return { data: [] };
+          },
+        },
+      },
+      sessionId: null,
+      workspaceRoot: "/repo/.worktrees/feature-a",
+    };
+
+    const result = await fetchBootstrapData(ctx);
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].directory).toBe("/repo");
+    expect(result.permissionMap["session-parent"]).toHaveLength(1);
+    expect(requestedDirectories).toEqual([
+      "list:/repo/.worktrees/feature-a",
+      "status:/repo/.worktrees/feature-a",
+      "permission:/repo/.worktrees/feature-a",
+      "list:/repo",
+      "status:/repo",
+      "permission:/repo",
+    ]);
+  });
 });

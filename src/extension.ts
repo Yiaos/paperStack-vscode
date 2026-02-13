@@ -11,10 +11,10 @@ export function getLogger(): vscode.LogOutputChannel {
 
 export async function activate(context: vscode.ExtensionContext) {
   // Create log channel - VSCode manages file location and timestamps automatically
-  logger = vscode.window.createOutputChannel("OpenCode", { log: true });
+  logger = vscode.window.createOutputChannel("PaperStack AI", { log: true });
   context.subscriptions.push(logger);
 
-  logger.info("OpenCode extension activated", {
+  logger.info("PaperStack AI extension activated", {
     timestamp: new Date().toISOString(),
     workspaceFolder: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
     extensionPath: context.extensionPath,
@@ -22,17 +22,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Create OpenCode service
   const openCodeService = new OpenCodeService();
-
-  // Initialize OpenCode with workspace root - non-blocking background task
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  openCodeService.initialize(workspaceRoot).then(() => {
+  let initErrorMessage: string | null = null;
+
+  // 首次打开视图时先等待服务初始化完成，避免用户进入后立即看到“断开连接/重连”提示
+  try {
+    await openCodeService.initialize(workspaceRoot);
     logger.info("OpenCode service initialized successfully");
-  }).catch((error) => {
+  } catch (error) {
     logger.error("Failed to initialize OpenCode service", error);
-    vscode.window.showErrorMessage(
-      `Failed to start PaperStack AI service: ${error.message}`
-    );
-  });
+    initErrorMessage = `Failed to start PaperStack AI service: ${(error as Error).message}`;
+    vscode.window.showErrorMessage(initErrorMessage);
+  }
 
   const provider = new OpenCodeViewProvider(
     context.extensionUri,
@@ -47,8 +48,12 @@ export async function activate(context: vscode.ExtensionContext) {
     )
   );
 
+  if (initErrorMessage) {
+    provider.sendHostMessage({ type: "error", message: initErrorMessage });
+  }
+
   const addSelectionDisposable = vscode.commands.registerCommand(
-    "opencode.addSelectionToPrompt",
+    "paperstack.ai.addSelectionToPrompt",
     async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {

@@ -30,7 +30,7 @@ test.describe("Settings Drawer", () => {
         await page.locator('button[aria-label="设置"]').click();
 
         // Update main file
-        const mainFileInput = page.locator('input[placeholder="例如: main.tex"]');
+        const mainFileInput = page.locator('input[placeholder="main.tex"]');
         await mainFileInput.fill("thesis.tex");
 
         // Toggle auto compile

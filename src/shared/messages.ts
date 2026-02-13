@@ -141,6 +141,11 @@ export const HostMessageSchema = z.discriminatedUnion("type", [
       currentSessionId: v.currentSessionId ?? undefined,
     })),
   z.object({
+    type: z.literal("server-url"),
+    workspaceRoot: z.string().optional(),
+    serverUrl: z.string(),
+  }),
+  z.object({
     type: z.literal("error"),
     message: z.string(),
   }),

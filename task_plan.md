@@ -18,7 +18,7 @@
   WHAT: Which phase you're currently working on (e.g., "Phase 1", "Phase 3").
   WHY: Quick reference for where you are in the task. Update this as you progress.
 -->
-Phase 2
+Phase 5
 
 ## Phases
 <!-- 
@@ -48,40 +48,40 @@ Phase 2
   WHAT: Decide how you'll approach the problem and what structure you'll use.
   WHY: Good planning prevents rework. Document decisions so you remember why you chose them.
 -->
-- [ ] Analyze upstream/opencode official implementation to learn expected server lifecycle
-- [ ] Define technical approach to prevent duplicate server processes
-- [ ] Document decisions with rationale
-- **Status:** in_progress
+- [x] Analyze upstream/opencode official implementation to learn expected server lifecycle
+- [x] Define technical approach to prevent duplicate server processes
+- [x] Document decisions with rationale
+- **Status:** complete
 
 ### Phase 3: Implementation
 <!-- 
   WHAT: Actually build/create/write the solution.
   WHY: This is where the work happens. Break into smaller sub-tasks if needed.
 -->
-- [ ] Implement minimal, low-intrusion fix in extension server lifecycle
-- [ ] Keep changes localized to OpenCodeService/activation flow
-- [ ] Add/adjust tests if needed (new feature → add tests)
-- **Status:** pending
+- [x] Implement minimal, low-intrusion fix in extension server lifecycle
+- [x] Keep changes localized to OpenCodeService/activation flow
+- [x] Add/adjust tests if needed (new feature → add tests)
+- **Status:** complete
 
 ### Phase 4: Testing & Verification
 <!-- 
   WHAT: Verify everything works and meets requirements.
   WHY: Catching issues early saves time. Document test results in progress.md.
 -->
-- [ ] Run `./bin/build-and-install.sh`
-- [ ] Document test results in progress.md
-- [ ] Fix any issues found
-- **Status:** pending
+- [x] Run `./bin/build-and-install.sh`
+- [x] Document test results in progress.md
+- [x] Fix any issues found
+- **Status:** complete
 
 ### Phase 5: Delivery
 <!-- 
   WHAT: Final review and handoff to user.
   WHY: Ensures nothing is forgotten and deliverables are complete.
 -->
-- [ ] Update README.md with behavior change
-- [ ] Summarize changes, reasons, and possible side effects
-- [ ] Deliver to user
-- **Status:** pending
+- [x] Update README.md with behavior change
+- [x] Summarize changes, reasons, and possible side effects
+- [x] Deliver to user
+- **Status:** complete
 
 ## Key Questions
 <!-- 
@@ -105,7 +105,11 @@ Phase 2
 -->
 | Decision | Rationale |
 |----------|-----------|
-|          |           |
+| 将 view id/command id 从 `opencode.*` 改为 `paperstack.ai.*` | 与本机已安装的 `tanishqkancharla.opencode-vscode` 存在相同 id，导致 VSCode 同时激活两套扩展进而拉起两个 `opencode serve` 进程；命名空间化可彻底隔离冲突 |
+| 为本扩展补齐 `activationEvents`（`onView`/`onCommand`） | 避免无关场景下激活扩展，且不再触发其他同名 onView/onCommand 的扩展激活链 |
+| server 初始化完成后补发 `server-url` 消息给 Webview | 消除“Webview ready 早于 server 启动，导致首个 init 缺少 serverUrl 被忽略并永久断连”的竞态；避免要求用户重启窗口 |
+| `activate` 阶段同步等待 `OpenCodeService.initialize` 完成 | 首次进入插件时先确保后端可用，避免用户先看到 disconnected/reconnect 状态 |
+| 前端可交互状态收敛为 `status=connected` | 避免 SSE 断连时仍允许发消息导致“发送无响应” |
 
 ## Errors Encountered
 <!-- 
@@ -118,7 +122,8 @@ Phase 2
 -->
 | Error | Attempt | Resolution |
 |-------|---------|------------|
-|       | 1       |            |
+| Playwright E2E `ECONNREFUSED ::1:5199` | 1 | 记录为当前环境的 e2e 入口依赖问题，已完成代码修复与 build/install 验证 |
+| Playwright E2E `opencodeServer` 启动超时（fixtures 初始化阶段） | 2 | `tests/e2e/fixtures.ts` 改为 worker 级持久 runtime cache（避免每轮冷启动重复安装）并将 server URL 等待超时从 30s 提升到 120s |
 
 ## Notes
 <!-- 
@@ -131,3 +136,33 @@ Phase 2
 - Update phase status as you progress: pending → in_progress → complete
 - Re-read this plan before major decisions (attention manipulation)
 - Log ALL errors - they help avoid repetition
+
+## 2026-02-13 Worktree Addendum
+- 已在 `.worktrees/opencode-single-server` 复现并确认“首屏已断开连接闪现”根因。
+- 已完成最小修复（初始状态 `disconnected -> connecting`）并新增单测保护。
+- 已执行 `./bin/build-and-install.sh`，结果通过。
+
+## 2026-02-13 E2E Fix Plan (localhost/IPv6 连接失败)
+- 目标：修复 Playwright E2E 中 `ECONNREFUSED ::1:5199`，使测试能稳定连接 Web 前端入口。
+- 步骤：
+  1) 统一 e2e Web server 与 `baseURL` 到 `127.0.0.1`，避免 `localhost -> ::1` 解析差异。
+  2) 清理 fixture 中将 `127.0.0.1` 强制改写为 `localhost` 的逻辑，消除同类波动。
+  3) 回归执行 `pnpm exec playwright test --max-failures=1` + `./bin/build-and-install.sh`。
+
+## 2026-02-13 E2E 收敛结果（worktree）
+- 已清理 `tests/e2e/fixtures.ts` 中临时调试落盘与运行时打印。
+- 已完成 fixture 稳定性修复：
+  1) OpenCode runtime 改为 `os.tmpdir()/paperstack-e2e-runtime/worker-<index>` 持久目录；
+  2) server 首次 URL 检测超时由 30s 放宽到 120s。
+- 验证结果：
+  1) `pnpm exec playwright test tests/e2e/attachments.spec.ts --reporter=line` 通过（7/7）；
+  2) `pnpm test:e2e` 通过（31 passed, 6 skipped）；
+  3) `./bin/build-and-install.sh` 通过（vitest 271/271，构建、打包、安装成功）。
+
+## 2026-02-13 Root Cause Fix（单进程已连通但无历史）
+- 目标：修复“仅一个 `opencode serve --port=40960` 且连接成功，但会话/历史为空”。
+- 实施步骤：
+  1) 在 `src/webview/state/bootstrap.ts` 为 worktree 路径增加目录回退：当 `workspaceRoot` 查询为空时，回退到父仓库目录再拉取 session/status/permission。
+  2) 在 `src/webview/App.tsx` 删除冗余的前端二次目录过滤（`s.directory === workspaceRoot`），避免把回退拿到的数据再次隐藏。
+  3) 在 `src/OpenCodeService.ts` 删除临时调试栈日志，减少噪音与无效输出。
+  4) 新增 `tests/frontend/bootstrap.test.ts` 回退单测并执行验证。

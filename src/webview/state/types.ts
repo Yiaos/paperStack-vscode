@@ -42,7 +42,9 @@ export interface SyncState {
 
 export function createEmptyState(): SyncState {
   return {
-    status: { status: "disconnected" },
+    // 初始阶段尚未收到 SSE 状态回调，默认标记为 connecting
+    // 避免首帧误显示“已断开连接”后又立刻变为连接中
+    status: { status: "connecting" },
     agents: [],
     sessions: [],
     message: {},
