@@ -30,7 +30,7 @@ export function AgentSwitcher(props: AgentSwitcherProps) {
       class="agent-switcher-button"
       onClick={cycleAgent}
       aria-label="Switch agent"
-      title={currentAgent()?.description || 'Switch agent'}
+      data-tooltip={currentAgent()?.description || 'Switch agent'}
       style={agentColor() ? { color: agentColor() } : {}}
     >
       {currentAgent()?.name || 'Agent'}

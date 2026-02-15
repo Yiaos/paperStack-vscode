@@ -1,7 +1,8 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import type { MentionItem, Agent } from "../types";
+import type { MentionItem, Agent, ContextInfo } from "../types";
 import type { QueuedMessage } from "../App";
 import { AgentSwitcher } from "./AgentSwitcher";
+import { ContextIndicator } from "./ContextIndicator";
 import { applyMentionToken, findMentionTokenAtCursor, type MentionTokenMatch } from "../utils/mention";
 
 const MENTION_SEARCH_DEBOUNCE_MS = 120;
@@ -26,6 +27,7 @@ interface InputBarProps {
   mentionSearchResult: MentionSearchResult | null;
   onMentionSearch: (query: string, requestId: string, limit?: number) => void;
   onMentionSelect: (item: MentionItem) => void;
+  contextInfo: ContextInfo | null;
 }
 
 interface InputAttachment {
@@ -198,19 +200,27 @@ export function InputBar(props: InputBarProps) {
       }
     }
 
-    if (e.key === "Escape" && props.isThinking) {
+    if (e.key === "Enter") {
+      if (e.shiftKey) {
+        return; // Newline
+      }
+      
       e.preventDefault();
-      props.onCancel();
-      return;
-    }
-
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      if (props.isThinking && e.shiftKey && props.value.trim()) {
-        props.onQueue();
+      
+      if (props.isThinking && props.value.trim()) {
+        if (e.metaKey || e.ctrlKey) {
+          props.onQueue();
+        } else {
+          handleSubmit(e);
+        }
       } else if (!props.isThinking || props.value.trim()) {
         handleSubmit(e);
       }
+    }
+
+    if (e.key === "Escape" && props.isThinking) {
+      e.preventDefault();
+      props.onCancel();
     }
   };
 
@@ -262,8 +272,8 @@ export function InputBar(props: InputBarProps) {
                   }}
                   aria-label="Remove from queue"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                    <path d="M9.354 3.354a.5.5 0 0 0-.708-.708L6 5.293 3.354 2.646a.5.5 0 1 0-.708.708L5.293 6 2.646 8.646a.5.5 0 0 0 .708.708L6 6.707l2.646 2.647a.5.5 0 0 0 .708-.708L6.707 6l2.647-2.646z" />
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.707L8 8.707z" />
                   </svg>
                 </button>
               </div>
@@ -271,12 +281,13 @@ export function InputBar(props: InputBarProps) {
           </For>
         </div>
       </Show>
+      
       <form class="input-container" onSubmit={handleSubmit} onClick={handleContainerClick}>
         <Show when={props.attachments.length > 0}>
           <div class="input-attachments">
             <For each={props.attachments}>
               {(attachment) => (
-                <div class="input-attachment" title={attachment.title ?? attachment.label}>
+                <div class="input-attachment" data-tooltip={attachment.title ?? attachment.label}>
                   <span class="input-attachment__text">{attachment.label}</span>
                   <button
                     type="button"
@@ -284,13 +295,16 @@ export function InputBar(props: InputBarProps) {
                     onClick={() => props.onRemoveAttachment(attachment.id)}
                     aria-label="Remove attachment"
                   >
-                    ×
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.707L8 8.707z" />
+                    </svg>
                   </button>
                 </div>
               )}
             </For>
           </div>
         </Show>
+
         <Show when={mentionOpen()}>
           <div class="mention-dropdown" role="listbox" aria-label="Mention files">
             <For each={mentionItems()}>
@@ -311,61 +325,79 @@ export function InputBar(props: InputBarProps) {
             </For>
           </div>
         </Show>
+
         <textarea
           ref={inputRef!}
           class="prompt-input"
-          placeholder=""
+          placeholder="Ask anything..."
           value={props.value}
           onInput={handleInput}
           onClick={handleTextAreaClick}
           onKeyDown={handleKeyDown}
           aria-label="Message input"
         />
-        <div class="input-buttons">
-          <Show when={props.agents.length > 0 && !props.isThinking}>
-            <AgentSwitcher
-              agents={props.agents}
-              selectedAgent={props.selectedAgent}
-              onAgentChange={props.onAgentChange}
-            />
-          </Show>
-          <Show when={showStopButton()}>
-            <button
-              type="button"
-              class="shortcut-button shortcut-button--stop"
-              onClick={() => props.onCancel()}
-              aria-label="Stop"
-            >
-              <svg viewBox="0 0 10 10" fill="currentColor">
-                <rect width="10" height="10" rx="2" />
-              </svg>
-            </button>
-          </Show>
-          <Show when={showQueueButton()}>
-            <button
-              type="button"
-              class="shortcut-button shortcut-button--queue"
-              onClick={() => props.onQueue()}
-              disabled={props.disabled || !hasText()}
-              aria-label="Queue message"
-            >
-              <span>⇧⌘⏎</span>
-              <span class="queue-label">Queue</span>
-            </button>
-          </Show>
-          <Show when={showSubmitButton() && !showQueueButton()}>
-            <button
-              type="submit"
-              class="shortcut-button shortcut-button--secondary"
-              disabled={props.disabled || !hasText()}
-              aria-label="Submit"
-            >
-              <span>⌘⏎</span>
-              <Show when={props.isThinking && hasText()}>
-                <span class="queue-label">Steer</span>
-              </Show>
-            </button>
-          </Show>
+
+        <div class="input-footer">
+          <div class="input-footer-left">
+            <Show when={props.agents.length > 0}>
+              <AgentSwitcher
+                agents={props.agents}
+                selectedAgent={props.selectedAgent}
+                onAgentChange={props.onAgentChange}
+              />
+            </Show>
+          </div>
+
+          <div class="input-footer-right">
+            <Show when={props.contextInfo}>
+              <ContextIndicator contextInfo={props.contextInfo} />
+            </Show>
+            <Show when={showStopButton()}>
+              <button
+                type="button"
+                class="input-action-button input-action-button--stop"
+                onClick={() => props.onCancel()}
+                aria-label="Stop"
+                data-tooltip="Stop generation (Esc)"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="4" y="4" width="8" height="8" rx="1" />
+                </svg>
+              </button>
+            </Show>
+
+            <Show when={showQueueButton()}>
+              <button
+                type="button"
+                class="input-action-button input-action-button--secondary"
+                onClick={() => props.onQueue()}
+                disabled={props.disabled || !hasText()}
+                aria-label="Queue message"
+                data-tooltip="Queue message (⌘⏎)"
+              >
+                <span>Queue</span>
+              </button>
+            </Show>
+
+            <Show when={showSubmitButton() && !showQueueButton()}>
+              <button
+                type="submit"
+                class={`input-action-button ${hasText() ? "input-action-button--primary" : "input-action-button--disabled"}`}
+                disabled={props.disabled || !hasText()}
+                aria-label="Submit"
+                data-tooltip="Send message (Enter)"
+              >
+                <Show when={props.isThinking && hasText()} fallback={
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 1.5l-13 4.5 5.5 1.5 1.5 5.5 6-11.5z" />
+                    <path d="M7 8l2.5-2.5" />
+                  </svg>
+                }>
+                  <span>Steer</span>
+                </Show>
+              </button>
+            </Show>
+          </div>
         </div>
       </form>
     </div>

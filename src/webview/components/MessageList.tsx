@@ -1,10 +1,10 @@
-
 import { For, Show, createSignal, onMount, onCleanup, createEffect, on, type Accessor } from "solid-js";
 import type { Message, Permission } from "../types";
 import { MessageItem } from "./MessageItem";
 import { EditableUserMessage } from "./EditableUserMessage";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { useSync } from "../state/sync";
+import { RecentSessions } from "./RecentSessions";
 
 interface MessageListProps {
   messages: Message[];
@@ -19,12 +19,24 @@ interface MessageListProps {
   onSubmitEdit?: (newText: string) => void;
   onEditTextChange?: (text: string) => void;
   sessionError?: string | null;
+  onCopy?: (text: string) => void;
+  onRetry?: (messageId: string) => void;
+  canRetry?: boolean;
+  recentSessions: import("../types").Session[];
+  onSessionSelect: (sessionId: string) => void;
+  onViewAllSessions: () => void;
+  showHistory: boolean;
+  onRenameSession: (sessionId: string, newTitle: string) => void;
+  onDeleteSession: (sessionId: string) => void;
+  onExportSession: (sessionId: string) => void;
+  onCloseHistory: () => void;
 }
 
 export function MessageList(props: MessageListProps) {
   const sync = useSync();
   let containerRef!: HTMLDivElement;
   let contentRef!: HTMLDivElement;
+  let historyRef: HTMLDivElement | undefined;
   
   const [pinned, setPinned] = createSignal(true);
   let userInteracting = false;
@@ -138,6 +150,17 @@ export function MessageList(props: MessageListProps) {
     )
   );
 
+  createEffect(() => {
+    if (!props.showHistory) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (historyRef && !historyRef.contains(e.target as Node)) {
+        props.onCloseHistory();
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    onCleanup(() => document.removeEventListener("mousedown", handleOutsideClick));
+  });
+
   const getMessageIndex = (messageId: string) => {
     return props.messages.findIndex(m => m.id === messageId);
   };
@@ -154,9 +177,36 @@ export function MessageList(props: MessageListProps) {
   };
 
   return (
-    <div class="messages-container" ref={containerRef!} role="log" aria-label="Messages">
-      <div class="messages-content" ref={contentRef!}>
-        <For each={props.messages}>
+    <div class="message-list-root">
+      <Show when={props.showHistory}>
+        <div class="session-history-overlay" ref={historyRef!}>
+          <RecentSessions 
+            sessions={props.recentSessions} 
+            onSessionSelect={props.onSessionSelect}
+            onViewAll={props.onViewAllSessions}
+            mode="full"
+            onRenameSession={props.onRenameSession}
+            onDeleteSession={props.onDeleteSession}
+            onExportSession={props.onExportSession}
+          />
+        </div>
+      </Show>
+
+      <div class="messages-container" ref={containerRef!} role="log" aria-label="Messages">
+        <div class="messages-content" ref={contentRef!}>
+          <Show when={props.messages.length === 0 && !props.isThinking}>
+            <RecentSessions 
+              sessions={props.recentSessions} 
+              onSessionSelect={props.onSessionSelect}
+              onViewAll={props.onViewAllSessions}
+              mode="compact"
+              onRenameSession={props.onRenameSession}
+              onDeleteSession={props.onDeleteSession}
+              onExportSession={props.onExportSession}
+            />
+          </Show>
+
+          <For each={props.messages}>
           {(message, index) => {
             const isLastMessage = () => index() === props.messages.length - 1;
             const isStreaming = () => isLastMessage() && props.isThinking && message.type === "assistant";
@@ -200,6 +250,9 @@ export function MessageList(props: MessageListProps) {
                       pendingPermissions={props.pendingPermissions} 
                       onPermissionResponse={props.onPermissionResponse} 
                       isStreaming={isStreaming()} 
+                      onCopy={props.onCopy}
+                      onRetry={props.onRetry}
+                      canRetry={props.canRetry}
                     />
                   </div>
                 }
@@ -223,6 +276,7 @@ export function MessageList(props: MessageListProps) {
           </div>
         </Show>
       </div>
+    </div>
     </div>
   );
 }

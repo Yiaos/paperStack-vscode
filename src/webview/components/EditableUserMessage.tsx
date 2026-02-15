@@ -50,32 +50,43 @@ export function EditableUserMessage(props: EditableUserMessageProps) {
   };
 
   return (
-    <div class="editable-message" onClick={handleContainerClick}>
+    <div class="input-container" onClick={handleContainerClick} style={{ "margin-top": "8px" }}>
       <textarea
         ref={textareaRef!}
-        class="editable-message__input"
+        class="prompt-input"
         value={props.text}
         onInput={(e) => props.onTextChange(e.currentTarget.value)}
         onKeyDown={handleKeyDown}
+        placeholder="Edit your message..."
       />
-      <div class="editable-message__actions">
-        <button
-          type="button"
-          class="editable-message__cancel"
-          onClick={() => props.onCancel()}
-          aria-label="Cancel (Escape)"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="shortcut-button shortcut-button--secondary"
-          disabled={!props.text.trim()}
-          onClick={() => props.onSubmit()}
-          aria-label="Submit (Cmd+Enter)"
-        >
-          ⌘⏎
-        </button>
+      <div class="input-footer">
+        <div class="input-footer-left"></div>
+        <div class="input-footer-right">
+          <button
+            type="button"
+            class="input-action-button input-action-button--stop"
+            onClick={() => props.onCancel()}
+            aria-label="Cancel (Escape)"
+            data-tooltip="Cancel (Escape)"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="4" y="4" width="8" height="8" rx="1" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="input-action-button input-action-button--primary"
+            disabled={!props.text.trim()}
+            onClick={() => props.onSubmit()}
+            aria-label="Submit (Cmd+Enter)"
+            data-tooltip="Update message (Cmd+Enter)"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 1.5l-13 4.5 5.5 1.5 1.5 5.5 6-11.5z" />
+              <path d="M7 8l2.5-2.5" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

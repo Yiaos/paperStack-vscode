@@ -80,7 +80,7 @@ export function applyEvent(event: Event, ctx: EventHandlerContext): void {
       const partsForText = store.part[info.id] ?? [];
       const nextText = partsForText.length > 0 
         ? extractTextFromParts(partsForText)
-        : (prev?.text ?? "");
+        : ((info as unknown as { text?: string }).text ?? (prev?.text ?? ""));
 
       const msg: Message = {
         id: info.id,

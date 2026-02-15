@@ -130,6 +130,12 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
       case 'mention-search':
         await this._handleMentionSearch(message.requestId, message.query, message.limit);
         break;
+      case 'copy-to-clipboard':
+        await vscode.env.clipboard.writeText(message.text);
+        break;
+      case 'export-session':
+        await this._handleExportSession(message.markdown, message.defaultFilename);
+        break;
     }
   }
 
@@ -251,6 +257,23 @@ export class OpenCodeViewProvider implements vscode.WebviewViewProvider {
     await this._globalState.update(LAST_AGENT_KEY, agent);
     const logger = getLogger();
     logger.info('[ViewProvider] Agent selection persisted:', agent);
+  }
+
+  private async _handleExportSession(markdown: string, defaultFilename?: string) {
+    const logger = getLogger();
+    try {
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(defaultFilename || 'session-export.md'),
+        filters: { 'Markdown': ['md'], 'All Files': ['*'] },
+        title: 'Export Session',
+      });
+      if (!uri) return;
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(markdown, 'utf-8'));
+      vscode.window.showInformationMessage(`Session exported to ${uri.fsPath}`);
+    } catch (error) {
+      logger.error('[ViewProvider] Failed to export session', { error });
+      vscode.window.showErrorMessage('PaperStack AI: Failed to export session.');
+    }
   }
 
   private async _handleMentionSearch(requestId: string, query: string, limit = 20) {

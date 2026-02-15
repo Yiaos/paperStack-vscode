@@ -72,6 +72,9 @@ function App() {
   // In-flight message tracking for outbox pattern
   const [inFlightMessage, setInFlightMessage] = createSignal<InFlightMessage | null>(null);
 
+  // History visible state
+  const [historyOpen, setHistoryOpen] = createSignal(false);
+
   // Get SDK hook for actions only
   const {
     initData,
@@ -82,6 +85,11 @@ function App() {
     revertToMessage,
     hostError,
     clearHostError,
+    updateSession,
+    deleteSession,
+    copyToClipboard,
+    exportSession,
+    getMessages,
   } = useOpenCode();
 
   // Get the current session key for drafts/agents
@@ -130,6 +138,7 @@ function App() {
   const fileChanges = () => sync.fileChanges();
   const isThinking = () => sync.isThinking();
   const sessionError = () => sync.sessionError();
+  const canRetry = () => !isThinking() && !inFlightMessage();
 
   const selectionAttachments = () => selectionAttachmentsBySession().get(sessionKey()) || [];
   const setSelectionAttachmentsForKey = (
@@ -680,6 +689,143 @@ function App() {
     await sync.bootstrap();
   };
 
+  // Session management handlers
+  const handleRenameSession = async (sessionId: string, newTitle: string) => {
+    try {
+      await updateSession(sessionId, newTitle);
+    } catch (err) {
+      console.error("[App] Failed to rename session:", err);
+      sync.setSessionError(sessionId, "Failed to rename session.");
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      await deleteSession(sessionId);
+      // If we just deleted the current session, create a new one
+      if (sync.currentSessionId() === sessionId) {
+        const remaining = sessions().filter(s => s.id !== sessionId);
+        if (remaining.length > 0) {
+          await sync.switchSession(remaining[0].id);
+        } else {
+          await handleNewSession();
+        }
+      }
+    } catch (err) {
+      console.error("[App] Failed to delete session:", err);
+      sync.setSessionError(sessionId, "Failed to delete session.");
+    }
+  };
+
+  const handleExportSession = async (sessionId: string) => {
+    try {
+      const result = await getMessages(sessionId);
+      if (result?.error) {
+        sync.setSessionError(sessionId, "Failed to export session.");
+        return;
+      }
+      const msgs = result?.data;
+      if (!msgs || !Array.isArray(msgs)) return;
+
+      const session = sessions().find(s => s.id === sessionId);
+      const title = session?.title || "Untitled Session";
+      const date = new Date().toISOString().slice(0, 10);
+
+      let markdown = `# ${title}\n\n`;
+      for (const item of msgs) {
+        const msg = item.info;
+        const role = msg.role === "user" ? "User" : "Assistant";
+        const msgParts = item.parts;
+        let text = "";
+        if (msgParts && msgParts.length > 0) {
+          text = msgParts
+            .filter((p) => p.type === "text" && "text" in p && (p as { text?: string }).text)
+            .map((p) => (p as { text: string }).text)
+            .join("\n");
+        }
+        const msgText = (msg as { text?: string }).text;
+        if (!text && msgText) {
+          text = msgText;
+        }
+        if (!text) continue;
+        markdown += `## ${role}\n\n${text}\n\n---\n\n`;
+      }
+
+      const safeName = title.replace(/[^a-zA-Z0-9\u4e00-\u9fff-_ ]/g, "").slice(0, 50);
+      exportSession(markdown, `${safeName}-${date}.md`);
+    } catch (err) {
+      console.error("[App] Failed to export session:", err);
+      sync.setSessionError(sessionId, "Failed to export session.");
+    }
+  };
+
+  // Copy assistant message text to clipboard
+  const handleCopyMessage = (text: string) => {
+    copyToClipboard(text);
+  };
+
+  // Retry an assistant message — revert to the preceding user message, then re-send
+  const handleRetryMessage = async (assistantMessageId: string) => {
+    const sessionId = sync.currentSessionId();
+    if (!sessionId || !sync.isReady()) return;
+    if (!canRetry()) return;
+
+    const msgs = messages();
+    const idx = msgs.findIndex(m => m.id === assistantMessageId);
+    if (idx < 1) return;
+
+    // Find the preceding user message
+    let userMsg: Message | undefined;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (msgs[i].type === "user") {
+        userMsg = msgs[i];
+        break;
+      }
+    }
+    if (!userMsg) return;
+
+    // Get user message text from parts
+    const userParts = sync.getParts(userMsg.id);
+    let userText = userMsg.text || "";
+    if (!userText && userParts.length > 0) {
+      userText = userParts
+        .filter(p => p.type === "text" && p.text && !(p as { synthetic?: boolean }).synthetic)
+        .map(p => p.text as string)
+        .join("\n");
+    }
+    if (!userText.trim()) return;
+
+    const agent = agents().some((a) => a.name === selectedAgent())
+      ? selectedAgent()
+      : null;
+    const newMessageID = Id.ascending("message");
+
+    sync.setThinking(sessionId, true);
+    setInFlightMessage({ messageID: newMessageID, sessionId });
+
+    try {
+      await revertToMessage(sessionId, userMsg.id);
+      const result = await sendPrompt(sessionId, userText.trim(), agent, [], newMessageID);
+
+      if (result?.error) {
+        const errorData = result.error as { data?: { message?: string }; error?: { data?: { message?: string } } };
+        const errorMessage =
+          errorData.data?.message ||
+          errorData.error?.data?.message ||
+          (typeof errorData === 'string' ? errorData : JSON.stringify(errorData)) ||
+          "Unknown error";
+        sync.setThinking(sessionId, false);
+        setInFlightMessage(null);
+        sync.setSessionError(sessionId, `Retry failed: ${errorMessage}`);
+      }
+    } catch (err) {
+      console.error("[App] Retry failed:", err);
+      sync.setThinking(sessionId, false);
+      setInFlightMessage(null);
+      sync.setSessionError(sessionId, `Retry failed: ${(err as Error).message}`);
+    }
+  };
+
   return (
     <div class={`app ${hasMessages() ? "app--has-messages" : ""}`}>
       <Show when={sync.status().status !== "connected" && !statusBannerDismissed()}>
@@ -710,49 +856,17 @@ function App() {
         onNewSession={handleNewSession}
         onRefreshSessions={refreshSessions}
         onOpenSettings={() => setSettingsOpen(true)}
+        onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
+        onExportSession={handleExportSession}
+        onToggleHistory={() => setHistoryOpen(!historyOpen())}
+        isHistoryOpen={historyOpen()}
       />
 
       <SettingsDrawer
         isOpen={settingsOpen()}
         onClose={() => setSettingsOpen(false)}
       />
-
-      <Show when={!hasMessages()}>
-        <Show when={standalonePermissions().length > 0}>
-          <div class="standalone-permissions">
-            <For each={standalonePermissions()}>
-              {(permission) => (
-                <PermissionPrompt
-                  permission={permission}
-                  onResponse={handlePermissionResponse}
-                  workspaceRoot={sync.workspaceRoot()}
-                />
-              )}
-            </For>
-          </div>
-        </Show>
-
-        <InputBar
-          value={input()}
-          onInput={setInput}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          onQueue={handleQueueMessage}
-          disabled={!sync.isReady()}
-          isThinking={isThinking()}
-          selectedAgent={selectedAgent()}
-          agents={agents()}
-          onAgentChange={handleAgentChange}
-          queuedMessages={messageQueue()}
-          onRemoveFromQueue={handleRemoveFromQueue}
-          onEditQueuedMessage={handleEditQueuedMessage}
-          attachments={attachmentChips()}
-          onRemoveAttachment={handleRemoveAttachment}
-          mentionSearchResult={mentionSearchResult()}
-          onMentionSearch={handleMentionSearch}
-          onMentionSelect={handleMentionSelect}
-        />
-      </Show>
 
       <MessageList
         messages={messages()}
@@ -767,50 +881,61 @@ function App() {
         onSubmitEdit={handleSubmitEdit}
         onEditTextChange={setEditingText}
         sessionError={sessionError()}
+        onCopy={handleCopyMessage}
+        onRetry={handleRetryMessage}
+        canRetry={canRetry()}
+        recentSessions={sessionsToShow()}
+        onSessionSelect={(id) => {
+          handleSessionSelect(id);
+          setHistoryOpen(false);
+        }}
+        onViewAllSessions={() => setHistoryOpen(true)}
+        showHistory={historyOpen()}
+        onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
+        onExportSession={handleExportSession}
+        onCloseHistory={() => setHistoryOpen(false)}
       />
 
-      <Show when={hasMessages()}>
-        <div class="input-divider" />
-        <div class="input-status-row">
-          <FileChangesSummary fileChanges={fileChanges()} />
-          <ContextIndicator contextInfo={contextInfo()} />
+      <div class="input-status-row">
+        <FileChangesSummary fileChanges={fileChanges()} />
+      </div>
+
+      <Show when={standalonePermissions().length > 0}>
+        <div class="standalone-permissions">
+          <For each={standalonePermissions()}>
+            {(permission) => (
+              <PermissionPrompt
+                permission={permission}
+                onResponse={handlePermissionResponse}
+                workspaceRoot={sync.workspaceRoot()}
+              />
+            )}
+          </For>
         </div>
-
-        <Show when={standalonePermissions().length > 0}>
-          <div class="standalone-permissions">
-            <For each={standalonePermissions()}>
-              {(permission) => (
-                <PermissionPrompt
-                  permission={permission}
-                  onResponse={handlePermissionResponse}
-                  workspaceRoot={sync.workspaceRoot()}
-                />
-              )}
-            </For>
-          </div>
-        </Show>
-
-        <InputBar
-          value={input()}
-          onInput={setInput}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          onQueue={handleQueueMessage}
-          disabled={!sync.isReady()}
-          isThinking={isThinking()}
-          selectedAgent={selectedAgent()}
-          agents={agents()}
-          onAgentChange={handleAgentChange}
-          queuedMessages={messageQueue()}
-          onRemoveFromQueue={handleRemoveFromQueue}
-          onEditQueuedMessage={handleEditQueuedMessage}
-          attachments={attachmentChips()}
-          onRemoveAttachment={handleRemoveAttachment}
-          mentionSearchResult={mentionSearchResult()}
-          onMentionSearch={handleMentionSearch}
-          onMentionSelect={handleMentionSelect}
-        />
       </Show>
+
+      <InputBar
+        value={input()}
+        onInput={setInput}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        onQueue={handleQueueMessage}
+        disabled={!sync.isReady()}
+        isThinking={isThinking()}
+        selectedAgent={selectedAgent()}
+        agents={agents()}
+        onAgentChange={handleAgentChange}
+        queuedMessages={messageQueue()}
+        onRemoveFromQueue={handleRemoveFromQueue}
+        onEditQueuedMessage={handleEditQueuedMessage}
+        attachments={attachmentChips()}
+        onRemoveAttachment={handleRemoveAttachment}
+        mentionSearchResult={mentionSearchResult()}
+        onMentionSearch={handleMentionSearch}
+        onMentionSelect={handleMentionSelect}
+        contextInfo={contextInfo()}
+      />
     </div>
   );
 }

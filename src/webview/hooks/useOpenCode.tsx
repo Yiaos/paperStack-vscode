@@ -223,6 +223,20 @@ function createOpenCode() {
       return client()?.config.get(dir ? { directory: dir } : undefined);
     },
     abortSession: (id: string) => client()?.session.abort({ sessionID: id }),
+    updateSession: (id: string, title: string) => {
+      const dir = workspaceRoot();
+      return client()?.session.update({ sessionID: id, title, ...(dir ? { directory: dir } : {}) });
+    },
+    deleteSession: (id: string) => {
+      const dir = workspaceRoot();
+      return client()?.session.delete({ sessionID: id, ...(dir ? { directory: dir } : {}) });
+    },
+    copyToClipboard: (text: string) => {
+      vscode.postMessage({ type: "copy-to-clipboard", text });
+    },
+    exportSession: (markdown: string, defaultFilename?: string) => {
+      vscode.postMessage({ type: "export-session", markdown, defaultFilename });
+    },
     // High-level helpers
     sendPrompt,
     subscribeToEvents,

@@ -259,6 +259,15 @@ export const WebviewMessageSchema = z.discriminatedUnion("type", [
     query: z.string(),
     limit: z.number().int().positive().max(100).optional(),
   }),
+  z.object({
+    type: z.literal("copy-to-clipboard"),
+    text: z.string(),
+  }),
+  z.object({
+    type: z.literal("export-session"),
+    markdown: z.string(),
+    defaultFilename: z.string().optional(),
+  }),
 ]);
 export type WebviewMessage = z.infer<typeof WebviewMessageSchema>;
 
