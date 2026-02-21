@@ -55,9 +55,9 @@ export function RecentSessions(props: RecentSessionsProps) {
     setContextMenuId(null);
   };
 
-  const handleSubmitRename = (sessionId: string) => {
+  const handleSubmitRename = (sessionId: string, oldTitle: string) => {
     const value = renameValue().trim();
-    if (value) {
+    if (value && value !== oldTitle) {
       props.onRenameSession(sessionId, value);
     }
     setRenamingId(null);
@@ -201,7 +201,7 @@ export function RecentSessions(props: RecentSessionsProps) {
                     <RenameInput
                       value={renameValue()}
                       onInput={setRenameValue}
-                      onSubmit={() => handleSubmitRename(session.id)}
+                      onSubmit={() => handleSubmitRename(session.id, session.title)}
                       onCancel={handleCancelRename}
                     />
                   </div>
@@ -234,12 +234,18 @@ function RenameInput(props: {
   let ref: HTMLInputElement | undefined;
 
   onMount(() => {
-    setTimeout(() => {
+    // Focus and select all text on mount. 
+    // We try immediately and also with a small timeout to be robust in VSCode webviews.
+    const focusAndSelect = () => {
       if (ref) {
         ref.focus();
         ref.select();
       }
-    }, 0);
+    };
+    
+    focusAndSelect();
+    const timer = setTimeout(focusAndSelect, 50);
+    onCleanup(() => clearTimeout(timer));
   });
 
   return (
@@ -259,6 +265,8 @@ function RenameInput(props: {
         }
       }}
       onBlur={props.onSubmit}
+      autoComplete="off"
+      spellcheck={false}
     />
   );
 }
